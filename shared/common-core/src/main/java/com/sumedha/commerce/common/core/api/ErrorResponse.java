@@ -1,5 +1,7 @@
 package com.sumedha.commerce.common.core.api;
 
+import com.sumedha.commerce.common.core.exception.CommerceException;
+
 import java.time.Instant;
 import java.util.Objects;
 
@@ -38,6 +40,12 @@ public final class ErrorResponse {
         }
 
         return new ErrorResponse(errorCode, message, statusCode, Instant.now());
+    }
+
+    public static ErrorResponse from(CommerceException exception) {
+        Objects.requireNonNull(exception, "exception must not be null");
+
+        return of(exception.getErrorCode(), exception.getMessage(), exception.getStatusCode());
     }
 
     public String getErrorCode() {

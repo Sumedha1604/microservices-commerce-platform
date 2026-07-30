@@ -1,5 +1,6 @@
 package com.sumedha.commerce.common.core.api;
 
+import com.sumedha.commerce.common.core.exception.BadRequestException;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -69,5 +70,23 @@ class ErrorResponseTest {
 
         assertEquals(400, clientError.getStatusCode());
         assertEquals(599, serverError.getStatusCode());
+    }
+
+    @Test
+    void fromCreatesErrorResponseFromCommerceException() {
+        BadRequestException exception =
+                new BadRequestException("Invalid input");
+
+        ErrorResponse response = ErrorResponse.from(exception);
+
+        assertEquals("BAD_REQUEST", response.getErrorCode());
+        assertEquals("Invalid input", response.getMessage());
+        assertEquals(400, response.getStatusCode());
+        assertNotNull(response.getTimestamp());
+    }
+
+    @Test
+    void fromRejectsNullException() {
+        assertThrows(NullPointerException.class, () -> ErrorResponse.from(null));
     }
 }
