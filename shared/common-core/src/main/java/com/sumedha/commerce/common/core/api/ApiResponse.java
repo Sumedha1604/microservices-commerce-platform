@@ -1,5 +1,7 @@
 package com.sumedha.commerce.common.core.api;
 
+import com.sumedha.commerce.common.core.constants.ApiConstants;
+
 import java.time.Instant;
 import java.util.Objects;
 
@@ -34,7 +36,7 @@ public final class ApiResponse<T> {
     }
 
     public static <T> ApiResponse<T> success(T data) {
-        return success("Success", data);
+        return success(ApiConstants.DEFAULT_SUCCESS_MESSAGE, data);
     }
 
     public static <T> ApiResponse<T> success(String message, T data) {
