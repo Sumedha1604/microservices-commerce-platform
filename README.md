@@ -12,7 +12,7 @@ The platform will be developed incrementally using independently deployable serv
 
 The repository currently contains only the initial project structure and repository-level configuration.
 
-`services/auth-service` provides authentication-only registration, login, JWT access tokens, rotating refresh tokens, and logout. `services/user-service` provides profiles, addresses, preferences, PostgreSQL, and Flyway. Kafka, Auth/User synchronization, avatar object storage, and distributed tracing remain planned.
+`services/auth-service` provides authentication-only registration, login, JWT access tokens, rotating refresh tokens, and logout. `services/user-service` provides profiles, addresses, preferences, PostgreSQL, and Flyway. `services/product-service` provides the product catalogue (products, categories, brands, images, attributes) with search, pagination, PostgreSQL, and Flyway. Kafka, Auth/User synchronization, avatar object storage, inventory, order integration, and distributed tracing remain planned.
 
 ## Planned Architecture
 

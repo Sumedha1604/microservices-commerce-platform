@@ -1,0 +1,1 @@
+package com.sumedha.commerce.product.dto.request; import jakarta.validation.constraints.*; public record CreateProductAttributeRequest(@NotBlank @Size(max=100) String name,@NotBlank @Size(max=500) String value){}

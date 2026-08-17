@@ -1,0 +1,1 @@
+package com.sumedha.commerce.product.dto.response; import java.util.*; public record CategoryResponse(UUID categoryId,String name,String slug,String description,UUID parentCategoryId,boolean active){}

@@ -1,0 +1,2 @@
+package com.sumedha.commerce.product.service; import com.sumedha.commerce.product.dto.request.*; import com.sumedha.commerce.product.dto.response.*; import java.util.*;
+public interface ProductImageService {ProductImageResponse create(UUID productId,CreateProductImageRequest r);List<ProductImageResponse> list(UUID productId);ProductImageResponse update(UUID productId,UUID imageId,UpdateProductImageRequest r);void delete(UUID productId,UUID imageId);}

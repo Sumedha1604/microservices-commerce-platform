@@ -1,0 +1,1 @@
+package com.sumedha.commerce.product.dto.response; import java.math.*; import java.util.*; public record ProductSummaryResponse(UUID productId,String sku,String name,String slug,BigDecimal price,String currency){}

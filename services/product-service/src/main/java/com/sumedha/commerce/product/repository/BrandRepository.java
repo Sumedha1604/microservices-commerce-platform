@@ -1,0 +1,1 @@
+package com.sumedha.commerce.product.repository; import com.sumedha.commerce.product.entity.Brand; import org.springframework.data.jpa.repository.JpaRepository; import java.util.*; public interface BrandRepository extends JpaRepository<Brand,UUID>{Optional<Brand> findBySlug(String slug);boolean existsBySlug(String slug);boolean existsBySlugAndIdNot(String slug,UUID id);}

@@ -1,0 +1,1 @@
+package com.sumedha.commerce.product.dto.request; import jakarta.validation.constraints.*; public record UpdateProductImageRequest(@NotBlank @Size(max=2048) String url,@Size(max=255) String altText,@Min(0) int sortOrder,boolean primaryImage){}

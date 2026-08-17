@@ -1,0 +1,1 @@
+package com.sumedha.commerce.product.dto.request; import jakarta.validation.constraints.*; import java.util.UUID; public record CreateCategoryRequest(@NotBlank @Size(max=100) String name,@NotBlank @Pattern(regexp="[a-z0-9]+(?:-[a-z0-9]+)*") @Size(max=120) String slug,@Size(max=5000) String description,UUID parentCategoryId){}
