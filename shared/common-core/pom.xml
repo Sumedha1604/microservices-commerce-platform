@@ -6,15 +6,20 @@
 
     <parent>
         <groupId>com.sumedha.commerce</groupId>
-        <artifactId>commerce-platform</artifactId>
+        <artifactId>shared</artifactId>
         <version>1.0.0-SNAPSHOT</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
 
-    <artifactId>shared</artifactId>
-    <packaging>pom</packaging>
+    <artifactId>common-core</artifactId>
+    <packaging>jar</packaging>
+    <name>Common Core</name>
 
-    <modules>
-        <module>common-core</module>
-    </modules>
+    <dependencies>
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
 </project>
