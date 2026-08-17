@@ -1,0 +1,1 @@
+package com.sumedha.commerce.user.repository; import com.sumedha.commerce.user.entity.UserProfile; import org.springframework.data.jpa.repository.JpaRepository; import java.util.*; public interface UserProfileRepository extends JpaRepository<UserProfile,UUID>{Optional<UserProfile> findByAuthUserId(UUID id);boolean existsByAuthUserId(UUID id);}

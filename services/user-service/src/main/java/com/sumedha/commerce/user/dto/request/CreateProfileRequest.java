@@ -1,0 +1,1 @@
+package com.sumedha.commerce.user.dto.request; import jakarta.validation.constraints.*; import java.time.LocalDate; public record CreateProfileRequest(@NotBlank @Size(max=100) String firstName,@NotBlank @Size(max=100) String lastName,@Size(max=40) String phone,@Size(max=2048) String avatarUrl,@PastOrPresent LocalDate dateOfBirth){}
