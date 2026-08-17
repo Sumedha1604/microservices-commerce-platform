@@ -1,0 +1,29 @@
+spring:
+  application:
+    name: auth-service
+  datasource:
+    url: ${AUTH_DB_URL:jdbc:postgresql://localhost:5432/auth_db}
+    username: ${AUTH_DB_USERNAME:auth_user}
+    password: ${AUTH_DB_PASSWORD:change-me}
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+  flyway:
+    enabled: true
+server:
+  port: ${AUTH_SERVER_PORT:8081}
+auth:
+  jwt:
+    secret: ${AUTH_JWT_SECRET:change-this-development-secret-to-a-32-byte-minimum-value}
+    access-token-expiration: ${AUTH_ACCESS_TOKEN_EXPIRATION:PT15M}
+    refresh-token-expiration: ${AUTH_REFRESH_TOKEN_EXPIRATION:P30D}
+    issuer: ${AUTH_JWT_ISSUER:commerce-auth-service}
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      show-details: never

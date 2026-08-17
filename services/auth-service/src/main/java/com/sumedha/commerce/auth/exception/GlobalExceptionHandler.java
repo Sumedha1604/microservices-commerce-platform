@@ -1,0 +1,6 @@
+package com.sumedha.commerce.auth.exception;
+import com.sumedha.commerce.common.core.api.ErrorResponse; import com.sumedha.commerce.common.core.exception.CommerceException; import org.slf4j.*; import org.springframework.http.*; import org.springframework.http.converter.HttpMessageNotReadableException; import org.springframework.web.bind.MethodArgumentNotValidException; import org.springframework.web.bind.annotation.*;
+@RestControllerAdvice public class GlobalExceptionHandler { private static final Logger log=LoggerFactory.getLogger(GlobalExceptionHandler.class);
+ @ExceptionHandler(CommerceException.class) ResponseEntity<ErrorResponse> commerce(CommerceException e){return ResponseEntity.status(e.getStatusCode()).body(ErrorResponse.from(e));}
+ @ExceptionHandler({MethodArgumentNotValidException.class,HttpMessageNotReadableException.class}) ResponseEntity<ErrorResponse> badRequest(Exception e){return ResponseEntity.badRequest().body(ErrorResponse.of("BAD_REQUEST","Request validation failed",400));}
+ @ExceptionHandler(Exception.class) ResponseEntity<ErrorResponse> unexpected(Exception e){log.error("Unexpected authentication service error",e);return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(ErrorResponse.of("INTERNAL_SERVER_ERROR","An unexpected error occurred",500));}}

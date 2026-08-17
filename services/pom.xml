@@ -15,5 +15,7 @@
     <packaging>pom</packaging>
     <name>Commerce Platform Services</name>
 
-    <modules/>
+    <modules>
+        <module>auth-service</module>
+    </modules>
 </project>

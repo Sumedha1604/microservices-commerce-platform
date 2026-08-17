@@ -1,0 +1,1 @@
+package com.sumedha.commerce.auth.dto.response; import com.sumedha.commerce.auth.enums.UserRole; import java.util.UUID; public record AuthResponse(UUID userId,String email,UserRole role,boolean verified,TokenResponse tokens) {}
