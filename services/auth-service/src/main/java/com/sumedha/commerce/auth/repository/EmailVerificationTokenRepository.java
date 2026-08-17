@@ -1,0 +1,1 @@
+package com.sumedha.commerce.auth.repository; import com.sumedha.commerce.auth.entity.EmailVerificationToken; import org.springframework.data.jpa.repository.JpaRepository; import java.util.*; public interface EmailVerificationTokenRepository extends JpaRepository<EmailVerificationToken,UUID>{Optional<EmailVerificationToken> findByTokenHash(String tokenHash);}

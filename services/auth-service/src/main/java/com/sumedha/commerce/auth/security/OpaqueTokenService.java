@@ -1,0 +1,3 @@
+package com.sumedha.commerce.auth.security;
+import org.springframework.stereotype.Service; import java.security.*; import java.util.*;
+@Service public class OpaqueTokenService { private final SecureRandom random=new SecureRandom(); public String generate(){byte[] b=new byte[48];random.nextBytes(b);return Base64.getUrlEncoder().withoutPadding().encodeToString(b);} public String hash(String token){try{return Base64.getEncoder().encodeToString(MessageDigest.getInstance("SHA-256").digest(token.getBytes(java.nio.charset.StandardCharsets.UTF_8)));}catch(NoSuchAlgorithmException e){throw new IllegalStateException(e);}} }

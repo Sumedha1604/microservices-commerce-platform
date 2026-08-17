@@ -1,0 +1,1 @@
+package com.sumedha.commerce.auth.dto.request; import jakarta.validation.constraints.*; public record RegisterRequest(@NotBlank @Email @Size(max=320) String email, @NotBlank @Size(min=12,max=128) @Pattern(regexp="(?=.*[A-Za-z])(?=.*\\d).+",message="password must contain a letter and a number") String password) {}

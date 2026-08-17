@@ -8,11 +8,11 @@ The platform will be developed incrementally using independently deployable serv
 
 ## Development Status
 
-**Foundation in progress**
+**Foundation in progress; Authentication Service implemented**
 
 The repository currently contains only the initial project structure and repository-level configuration.
 
-Features described in this document must not be considered implemented until they are completed, tested, and documented.
+`services/auth-service` now provides authentication-only registration, login, JWT access tokens, rotating refresh tokens, and logout. Profile management, email delivery, Kafka, and other services remain planned.
 
 ## Planned Architecture
 
