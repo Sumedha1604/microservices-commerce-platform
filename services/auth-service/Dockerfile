@@ -10,5 +10,4 @@ WORKDIR /app
 COPY --from=build /workspace/services/auth-service/target/auth-service-*.jar app.jar
 USER app
 EXPOSE 8081
-HEALTHCHECK --interval=30s --timeout=3s --start-period=30s --retries=3 CMD ["java","-version"]
 ENTRYPOINT ["java","-jar","/app/app.jar"]
