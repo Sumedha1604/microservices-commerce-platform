@@ -1,0 +1,7 @@
+package com.sumedha.commerce.product.controller; import com.sumedha.commerce.product.dto.request.*; import com.sumedha.commerce.product.dto.response.*; import com.sumedha.commerce.product.service.ProductImageService; import com.sumedha.commerce.common.core.api.ApiResponse; import jakarta.validation.Valid; import org.springframework.http.*; import org.springframework.web.bind.annotation.*; import java.util.*;
+@RestController @RequestMapping("/api/v1/products/{productId}/images") public class ProductImageController {private final ProductImageService service;public ProductImageController(ProductImageService service){this.service=service;}
+@PostMapping public ResponseEntity<ApiResponse<ProductImageResponse>> create(@PathVariable("productId") UUID productId,@Valid @RequestBody CreateProductImageRequest r){return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success(service.create(productId,r)));}
+@GetMapping public ApiResponse<List<ProductImageResponse>> list(@PathVariable("productId") UUID productId){return ApiResponse.success(service.list(productId));}
+@PutMapping("/{imageId}") public ApiResponse<ProductImageResponse> update(@PathVariable("productId") UUID productId,@PathVariable("imageId") UUID imageId,@Valid @RequestBody UpdateProductImageRequest r){return ApiResponse.success(service.update(productId,imageId,r));}
+@DeleteMapping("/{imageId}") public ResponseEntity<Void> delete(@PathVariable("productId") UUID productId,@PathVariable("imageId") UUID imageId){service.delete(productId,imageId);return ResponseEntity.noContent().build();}
+}

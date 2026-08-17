@@ -1,0 +1,9 @@
+package com.sumedha.commerce.product.service; import com.sumedha.commerce.product.dto.request.*; import com.sumedha.commerce.product.dto.response.*; import com.sumedha.commerce.product.entity.Brand; import com.sumedha.commerce.product.mapper.BrandMapper; import com.sumedha.commerce.product.repository.BrandRepository; import com.sumedha.commerce.product.repository.ProductRepository; import com.sumedha.commerce.common.core.exception.*; import org.springframework.stereotype.Service; import org.springframework.transaction.annotation.Transactional; import java.util.*;
+@Service public class BrandServiceImpl implements BrandService {private final BrandRepository brands;private final ProductRepository products;public BrandServiceImpl(BrandRepository b,ProductRepository p){brands=b;products=p;}
+@Transactional public BrandResponse create(CreateBrandRequest r){if(brands.existsBySlug(r.slug()))throw new ConflictException("Brand slug already exists");Brand b=brands.save(new Brand(r.name(),r.slug(),r.description()));return BrandMapper.toResponse(b);}
+@Transactional(readOnly=true) public List<BrandResponse> list(){return brands.findAll().stream().map(BrandMapper::toResponse).toList();}
+@Transactional(readOnly=true) public BrandResponse get(UUID brandId){return BrandMapper.toResponse(brand(brandId));}
+@Transactional public BrandResponse update(UUID brandId,UpdateBrandRequest r){Brand b=brand(brandId);if(brands.existsBySlugAndIdNot(r.slug(),brandId))throw new ConflictException("Brand slug already exists");b.update(r.name(),r.slug(),r.description(),r.active());return BrandMapper.toResponse(b);}
+@Transactional public void delete(UUID brandId){Brand b=brand(brandId);if(products.existsByBrandId(brandId))throw new ConflictException("Brand has products");brands.delete(b);}
+private Brand brand(UUID id){return brands.findById(id).orElseThrow(()->new ResourceNotFoundException("Brand not found"));}
+}

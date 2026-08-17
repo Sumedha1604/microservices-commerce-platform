@@ -1,0 +1,6 @@
+package com.sumedha.commerce.product.controller; import com.sumedha.commerce.product.dto.request.*; import com.sumedha.commerce.product.dto.response.*; import com.sumedha.commerce.product.service.ProductAttributeService; import com.sumedha.commerce.common.core.api.ApiResponse; import jakarta.validation.Valid; import org.springframework.http.*; import org.springframework.web.bind.annotation.*; import java.util.*;
+@RestController @RequestMapping("/api/v1/products/{productId}/attributes") public class ProductAttributeController {private final ProductAttributeService service;public ProductAttributeController(ProductAttributeService service){this.service=service;}
+@PostMapping public ResponseEntity<ApiResponse<ProductAttributeResponse>> create(@PathVariable("productId") UUID productId,@Valid @RequestBody CreateProductAttributeRequest r){return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success(service.create(productId,r)));}
+@GetMapping public ApiResponse<List<ProductAttributeResponse>> list(@PathVariable("productId") UUID productId){return ApiResponse.success(service.list(productId));}
+@DeleteMapping("/{attributeId}") public ResponseEntity<Void> delete(@PathVariable("productId") UUID productId,@PathVariable("attributeId") UUID attributeId){service.delete(productId,attributeId);return ResponseEntity.noContent().build();}
+}

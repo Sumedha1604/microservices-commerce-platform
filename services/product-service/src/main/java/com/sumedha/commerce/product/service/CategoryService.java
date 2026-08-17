@@ -1,0 +1,2 @@
+package com.sumedha.commerce.product.service; import com.sumedha.commerce.product.dto.request.*; import com.sumedha.commerce.product.dto.response.*; import java.util.*;
+public interface CategoryService {CategoryResponse create(CreateCategoryRequest r);List<CategoryResponse> list();CategoryResponse get(UUID categoryId);CategoryResponse update(UUID categoryId,UpdateCategoryRequest r);void delete(UUID categoryId);}

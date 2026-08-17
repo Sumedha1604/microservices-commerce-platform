@@ -1,0 +1,1 @@
+package com.sumedha.commerce.product.mapper; import com.sumedha.commerce.product.dto.response.BrandResponse; import com.sumedha.commerce.product.entity.Brand; public final class BrandMapper {private BrandMapper(){} public static BrandResponse toResponse(Brand b){return new BrandResponse(b.getId(),b.getName(),b.getSlug(),b.getDescription(),b.isActive());}}

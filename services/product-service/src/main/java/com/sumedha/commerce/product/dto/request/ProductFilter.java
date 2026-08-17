@@ -1,0 +1,1 @@
+package com.sumedha.commerce.product.dto.request; import com.sumedha.commerce.product.enums.ProductStatus; import java.math.*; import java.util.*; public record ProductFilter(String search,UUID categoryId,UUID brandId,ProductStatus status,BigDecimal minPrice,BigDecimal maxPrice){}
