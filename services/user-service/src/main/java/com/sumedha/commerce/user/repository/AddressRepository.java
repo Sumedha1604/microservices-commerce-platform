@@ -1,0 +1,1 @@
+package com.sumedha.commerce.user.repository; import com.sumedha.commerce.user.entity.Address; import org.springframework.data.jpa.repository.JpaRepository; import java.util.*; public interface AddressRepository extends JpaRepository<Address,UUID>{List<Address> findByProfileId(UUID id);Optional<Address> findByIdAndProfileId(UUID id,UUID profileId);}

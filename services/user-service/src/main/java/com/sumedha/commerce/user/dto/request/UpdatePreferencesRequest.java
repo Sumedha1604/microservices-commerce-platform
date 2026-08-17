@@ -1,0 +1,1 @@
+package com.sumedha.commerce.user.dto.request; import jakarta.validation.constraints.*; public record UpdatePreferencesRequest(@Size(min=2,max=10) String language,@Pattern(regexp="[A-Za-z]{3}") String currency,boolean marketingEmails,boolean orderNotifications){}

@@ -1,0 +1,1 @@
+package com.sumedha.commerce.user.dto.response; import com.sumedha.commerce.user.enums.AddressType; import java.util.UUID; public record AddressResponse(UUID addressId,AddressType type,String recipientName,String line1,String line2,String city,String stateRegion,String postalCode,String countryCode,String phone,boolean isDefault){}
