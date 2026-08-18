@@ -1,0 +1,23 @@
+spring:
+  application:
+    name: cart-service
+  datasource:
+    url: ${CART_DB_URL:jdbc:postgresql://localhost:5432/cart_db}
+    username: ${CART_DB_USERNAME:cart_user}
+    password: ${CART_DB_PASSWORD:change-me}
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+  flyway:
+    enabled: true
+server:
+  port: ${CART_SERVER_PORT:8085}
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      show-details: never
