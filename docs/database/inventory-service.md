@@ -14,3 +14,13 @@ Migration `V1__create_inventory_schema.sql` creates a single `inventory` table:
 A table-level check enforces `reserved_quantity <= quantity`.
 
 `product_id` is a UUID reference only. There is **no foreign key to Product Service** and no cross-service database access — Inventory Service owns its schema independently, verified in `InventoryPostgresIntegrationTest`.
+
+## V2: optimistic locking
+
+Migration `V2__add_inventory_version.sql` adds a `version` column to `inventory`:
+
+| Column | Type | Constraints |
+|---|---|---|
+| `version` | BIGINT | `NOT NULL DEFAULT 0` |
+
+`Inventory.version` is mapped with JPA `@Version`. The column is used for optimistic locking: concurrent stale writes are detected instead of silently overwriting each other. This helps prevent lost updates during concurrent reserve/release/update operations.
