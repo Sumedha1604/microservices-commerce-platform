@@ -20,5 +20,6 @@
         <module>user-service</module>
         <module>product-service</module>
         <module>inventory-service</module>
+        <module>cart-service</module>
     </modules>
 </project>
