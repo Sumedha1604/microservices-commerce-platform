@@ -4,11 +4,12 @@ COPY pom.xml ./
 COPY shared ./shared
 COPY services ./services
 COPY tests ./tests
-RUN mvn -pl services/payment-service -am package -DskipTests
+RUN mvn -pl services/checkout-service -am package -DskipTests
+
 FROM eclipse-temurin:21-jre
 RUN addgroup --system app && adduser --system --ingroup app app
 WORKDIR /app
-COPY --from=build /workspace/services/payment-service/target/payment-service-*.jar app.jar
+COPY --from=build /workspace/services/checkout-service/target/checkout-service-*.jar app.jar
 USER app
-EXPOSE 8087
-ENTRYPOINT ["java","-jar","/app/app.jar"]
+EXPOSE 8088
+ENTRYPOINT ["java", "-jar", "/app/app.jar"]

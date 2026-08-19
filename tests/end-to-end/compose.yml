@@ -1,0 +1,177 @@
+services:
+  product-db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: product_db
+      POSTGRES_USER: product_user
+      POSTGRES_PASSWORD: product_password
+    volumes:
+      - product-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U product_user -d product_db"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  product:
+    build:
+      context: ../..
+      dockerfile: services/product-service/Dockerfile
+    environment:
+      PRODUCT_DB_URL: jdbc:postgresql://product-db:5432/product_db
+      PRODUCT_DB_USERNAME: product_user
+      PRODUCT_DB_PASSWORD: product_password
+      PRODUCT_SERVER_PORT: 8083
+    ports:
+      - "8083:8083"
+    depends_on:
+      product-db:
+        condition: service_healthy
+
+  inventory-db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: inventory_db
+      POSTGRES_USER: inventory_user
+      POSTGRES_PASSWORD: inventory_password
+    volumes:
+      - inventory-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U inventory_user -d inventory_db"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  inventory:
+    build:
+      context: ../..
+      dockerfile: services/inventory-service/Dockerfile
+    environment:
+      INVENTORY_DB_URL: jdbc:postgresql://inventory-db:5432/inventory_db
+      INVENTORY_DB_USERNAME: inventory_user
+      INVENTORY_DB_PASSWORD: inventory_password
+      INVENTORY_SERVER_PORT: 8084
+    ports:
+      - "8084:8084"
+    depends_on:
+      inventory-db:
+        condition: service_healthy
+
+  cart-db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: cart_db
+      POSTGRES_USER: cart_user
+      POSTGRES_PASSWORD: cart_password
+    volumes:
+      - cart-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cart_user -d cart_db"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  cart:
+    build:
+      context: ../..
+      dockerfile: services/cart-service/Dockerfile
+    environment:
+      CART_DB_URL: jdbc:postgresql://cart-db:5432/cart_db
+      CART_DB_USERNAME: cart_user
+      CART_DB_PASSWORD: cart_password
+      CART_SERVER_PORT: 8085
+    ports:
+      - "8085:8085"
+    depends_on:
+      cart-db:
+        condition: service_healthy
+
+  order-db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: order_db
+      POSTGRES_USER: order_user
+      POSTGRES_PASSWORD: order_password
+    volumes:
+      - order-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U order_user -d order_db"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  order:
+    build:
+      context: ../..
+      dockerfile: services/order-service/Dockerfile
+    environment:
+      ORDER_DB_URL: jdbc:postgresql://order-db:5432/order_db
+      ORDER_DB_USERNAME: order_user
+      ORDER_DB_PASSWORD: order_password
+      ORDER_SERVER_PORT: 8086
+    ports:
+      - "8086:8086"
+    depends_on:
+      order-db:
+        condition: service_healthy
+
+  payment-db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: payment_db
+      POSTGRES_USER: payment_user
+      POSTGRES_PASSWORD: payment_password
+    volumes:
+      - payment-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U payment_user -d payment_db"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  payment:
+    build:
+      context: ../..
+      dockerfile: services/payment-service/Dockerfile
+    environment:
+      PAYMENT_DB_URL: jdbc:postgresql://payment-db:5432/payment_db
+      PAYMENT_DB_USERNAME: payment_user
+      PAYMENT_DB_PASSWORD: payment_password
+      PAYMENT_SERVER_PORT: 8087
+    ports:
+      - "8087:8087"
+    depends_on:
+      payment-db:
+        condition: service_healthy
+
+  checkout:
+    build:
+      context: ../..
+      dockerfile: services/checkout-service/Dockerfile
+    environment:
+      CHECKOUT_SERVER_PORT: 8088
+      PRODUCT_SERVICE_URL: http://product:8083
+      INVENTORY_SERVICE_URL: http://inventory:8084
+      CART_SERVICE_URL: http://cart:8085
+      ORDER_SERVICE_URL: http://order:8086
+      PAYMENT_SERVICE_URL: http://payment:8087
+    ports:
+      - "8088:8088"
+    depends_on:
+      product:
+        condition: service_started
+      inventory:
+        condition: service_started
+      cart:
+        condition: service_started
+      order:
+        condition: service_started
+      payment:
+        condition: service_started
+
+volumes:
+  product-db-data:
+  inventory-db-data:
+  cart-db-data:
+  order-db-data:
+  payment-db-data:

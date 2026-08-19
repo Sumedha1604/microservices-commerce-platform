@@ -91,5 +91,6 @@
     <modules>
         <module>services</module>
         <module>shared</module>
+        <module>tests/end-to-end</module>
     </modules>
 </project>
