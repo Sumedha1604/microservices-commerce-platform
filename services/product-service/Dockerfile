@@ -3,6 +3,7 @@ WORKDIR /workspace
 COPY pom.xml ./
 COPY shared ./shared
 COPY services ./services
+COPY tests ./tests
 RUN mvn -pl services/product-service -am package -DskipTests
 FROM eclipse-temurin:21-jre
 RUN addgroup --system app && adduser --system --ingroup app app
