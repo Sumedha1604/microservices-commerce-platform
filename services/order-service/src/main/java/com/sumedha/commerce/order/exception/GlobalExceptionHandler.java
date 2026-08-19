@@ -1,0 +1,42 @@
+package com.sumedha.commerce.order.exception;
+
+import com.sumedha.commerce.common.core.api.ErrorResponse;
+import com.sumedha.commerce.common.core.exception.CommerceException;
+import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
+import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+
+@RestControllerAdvice
+public class GlobalExceptionHandler {
+
+    @ExceptionHandler(CommerceException.class)
+    ResponseEntity<ErrorResponse> commerce(CommerceException e) {
+        return ResponseEntity.status(e.getStatusCode()).body(ErrorResponse.from(e));
+    }
+
+    @ExceptionHandler(ObjectOptimisticLockingFailureException.class)
+    ResponseEntity<ErrorResponse> optimisticLock(ObjectOptimisticLockingFailureException e) {
+        return ResponseEntity.status(409)
+                .body(ErrorResponse.of("CONFLICT", "Order was modified concurrently. Please retry.", 409));
+    }
+
+    @ExceptionHandler({MethodArgumentNotValidException.class, HttpMessageNotReadableException.class})
+    ResponseEntity<ErrorResponse> bad(Exception e) {
+        return ResponseEntity.badRequest().body(ErrorResponse.of("BAD_REQUEST", "Request validation failed", 400));
+    }
+
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    ResponseEntity<ErrorResponse> typeMismatch(MethodArgumentTypeMismatchException e) {
+        return ResponseEntity.badRequest()
+                .body(ErrorResponse.of("BAD_REQUEST", "Invalid value for parameter '" + e.getName() + "'", 400));
+    }
+
+    @ExceptionHandler(Exception.class)
+    ResponseEntity<ErrorResponse> error(Exception e) {
+        return ResponseEntity.status(500).body(ErrorResponse.of("INTERNAL_SERVER_ERROR", "An unexpected error occurred", 500));
+    }
+}
