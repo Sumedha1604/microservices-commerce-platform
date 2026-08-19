@@ -1,0 +1,2 @@
+CREATE TABLE payments (payment_id UUID PRIMARY KEY,order_id UUID NOT NULL,user_id UUID NOT NULL,status VARCHAR(30) NOT NULL,amount NUMERIC(19,2) NOT NULL CHECK(amount>=0),currency VARCHAR(3) NOT NULL,provider VARCHAR(50),provider_reference VARCHAR(255),failure_reason VARCHAR(500),created_at TIMESTAMPTZ NOT NULL,updated_at TIMESTAMPTZ NOT NULL,version BIGINT NOT NULL DEFAULT 0,CONSTRAINT uq_payments_order_id UNIQUE(order_id));
+CREATE INDEX idx_payments_user_id ON payments(user_id);
