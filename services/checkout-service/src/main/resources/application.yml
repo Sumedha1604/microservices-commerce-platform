@@ -1,0 +1,23 @@
+spring:
+  application:
+    name: checkout-service
+
+server:
+  port: ${CHECKOUT_SERVER_PORT:8088}
+
+checkout:
+  services:
+    cart-url: ${CART_SERVICE_URL:http://localhost:8085}
+    product-url: ${PRODUCT_SERVICE_URL:http://localhost:8083}
+    inventory-url: ${INVENTORY_SERVICE_URL:http://localhost:8084}
+    order-url: ${ORDER_SERVICE_URL:http://localhost:8086}
+    payment-url: ${PAYMENT_SERVICE_URL:http://localhost:8087}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      show-details: never
