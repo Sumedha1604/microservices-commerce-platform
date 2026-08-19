@@ -1,0 +1,4 @@
+CREATE TABLE orders (order_id UUID PRIMARY KEY,user_id UUID NOT NULL,status VARCHAR(30) NOT NULL,subtotal NUMERIC(19,2) NOT NULL CHECK(subtotal>=0),total NUMERIC(19,2) NOT NULL CHECK(total>=0),currency VARCHAR(3) NOT NULL,created_at TIMESTAMPTZ NOT NULL,updated_at TIMESTAMPTZ NOT NULL,version BIGINT NOT NULL DEFAULT 0);
+CREATE INDEX idx_orders_user_id ON orders(user_id);
+CREATE TABLE order_items (order_item_id UUID PRIMARY KEY,order_id UUID NOT NULL REFERENCES orders(order_id) ON DELETE CASCADE,product_id UUID NOT NULL,product_name VARCHAR(255) NOT NULL,sku VARCHAR(100),unit_price NUMERIC(19,2) NOT NULL CHECK(unit_price>=0),quantity INTEGER NOT NULL CHECK(quantity>0),line_total NUMERIC(19,2) NOT NULL CHECK(line_total>=0),created_at TIMESTAMPTZ NOT NULL);
+CREATE INDEX idx_order_items_order_id ON order_items(order_id);
