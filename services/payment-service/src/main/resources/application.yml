@@ -1,0 +1,23 @@
+spring:
+  application:
+    name: payment-service
+  datasource:
+    url: ${PAYMENT_DB_URL:jdbc:postgresql://localhost:5432/payment_db}
+    username: ${PAYMENT_DB_USERNAME:payment_user}
+    password: ${PAYMENT_DB_PASSWORD:change-me}
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+  flyway:
+    enabled: true
+server:
+  port: ${PAYMENT_SERVER_PORT:8087}
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      show-details: never
