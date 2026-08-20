@@ -1,0 +1,71 @@
+spring:
+  application:
+    name: api-gateway
+  cloud:
+    gateway:
+      server:
+        webflux:
+          routes:
+            - id: auth-service
+              uri: ${gateway.services.auth-url}
+              predicates:
+                - Path=/api/v1/auth/**
+            - id: user-service
+              uri: ${gateway.services.user-url}
+              predicates:
+                - Path=/api/v1/users/**
+            - id: product-service-products
+              uri: ${gateway.services.product-url}
+              predicates:
+                - Path=/api/v1/products/**
+            - id: product-service-categories
+              uri: ${gateway.services.product-url}
+              predicates:
+                - Path=/api/v1/categories/**
+            - id: product-service-brands
+              uri: ${gateway.services.product-url}
+              predicates:
+                - Path=/api/v1/brands/**
+            - id: inventory-service
+              uri: ${gateway.services.inventory-url}
+              predicates:
+                - Path=/api/v1/inventory/**
+            - id: cart-service
+              uri: ${gateway.services.cart-url}
+              predicates:
+                - Path=/api/v1/carts/**
+            - id: order-service
+              uri: ${gateway.services.order-url}
+              predicates:
+                - Path=/api/v1/orders/**
+            - id: payment-service
+              uri: ${gateway.services.payment-url}
+              predicates:
+                - Path=/api/v1/payments/**
+            - id: checkout-service
+              uri: ${gateway.services.checkout-url}
+              predicates:
+                - Path=/api/v1/checkouts/**
+
+server:
+  port: ${GATEWAY_SERVER_PORT:8080}
+
+gateway:
+  services:
+    auth-url: ${AUTH_SERVICE_URL:http://localhost:8081}
+    user-url: ${USER_SERVICE_URL:http://localhost:8082}
+    product-url: ${PRODUCT_SERVICE_URL:http://localhost:8083}
+    inventory-url: ${INVENTORY_SERVICE_URL:http://localhost:8084}
+    cart-url: ${CART_SERVICE_URL:http://localhost:8085}
+    order-url: ${ORDER_SERVICE_URL:http://localhost:8086}
+    payment-url: ${PAYMENT_SERVICE_URL:http://localhost:8087}
+    checkout-url: ${CHECKOUT_SERVICE_URL:http://localhost:8088}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      show-details: never
