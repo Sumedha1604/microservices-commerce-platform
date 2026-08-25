@@ -1,0 +1,9 @@
+services:
+  prometheus:
+    image: prom/prometheus:v3.5.1
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+    volumes:
+      - ../../infrastructure/observability/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    ports:
+      - "9090:9090"
