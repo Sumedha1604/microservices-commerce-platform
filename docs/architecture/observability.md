@@ -29,9 +29,28 @@ Prometheus UI: http://localhost:9090
 - `jvm_memory_used_bytes{application="order-service"}` — JVM memory usage
 - `http_server_requests_seconds_count` — HTTP request counts (labeled by `application`, `method`, `status`, `uri`, `outcome`; no user/order/payment identifiers)
 
+## Centralized logging (implemented)
+
+Loki stores local Docker container logs and Promtail discovers containers through the Docker socket. Grafana provisions both the Loki and Prometheus datasources automatically.
+
+### Running it
+
+```bash
+docker compose \
+  -f tests/end-to-end/compose.yml \
+  -f infrastructure/observability/compose.prometheus.yml \
+  -f infrastructure/observability/compose.logging.yml \
+  up -d
+```
+
+- Grafana: http://localhost:3000 (default local credentials: `admin` / `admin`)
+- Loki: http://localhost:3100
+- Prometheus: http://localhost:9090
+
+In Grafana Explore, select **Loki** and query `{service="order"}`. The `service` label is the Docker Compose service name; all application services can be queried the same way (for example, `api-gateway`, `auth`, `user`, `product`, `inventory`, `cart`, `order`, `payment`, and `checkout`). The `container_name` and `stream` labels are also available.
+
 ## Not yet implemented
 
-- Grafana (dashboards/visualization)
 - Distributed tracing (OpenTelemetry, Jaeger, Zipkin)
-- Centralized logging (Loki or equivalent)
+- Grafana dashboards/visualization
 - Alerting rules
