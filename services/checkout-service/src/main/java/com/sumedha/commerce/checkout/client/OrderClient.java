@@ -18,8 +18,8 @@ public class OrderClient extends DownstreamClient {
 
     private final RestClient restClient;
 
-    public OrderClient(@Value("${checkout.services.order-url}") String baseUrl) {
-        this.restClient = RestClient.builder().baseUrl(baseUrl).build();
+    public OrderClient(RestClient.Builder restClientBuilder, @Value("${checkout.services.order-url}") String baseUrl) {
+        this.restClient = restClientBuilder.baseUrl(baseUrl).build();
     }
 
     public OrderResponse createOrder(CreateOrderRequest request) {

@@ -19,6 +19,7 @@ import com.sumedha.commerce.common.core.exception.BadRequestException;
 import com.sumedha.commerce.common.core.exception.InternalServerException;
 import com.sumedha.commerce.common.core.exception.ResourceNotFoundException;
 import org.junit.jupiter.api.Test;
+import org.springframework.web.client.RestClient;
 
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -340,7 +341,7 @@ class CheckoutServiceImplTest {
         private final CartGetResponse cart;
 
         private StubCartClient(CartGetResponse cart) {
-            super("http://localhost");
+            super(RestClient.builder(), "http://localhost");
             this.cart = cart;
         }
 
@@ -355,7 +356,7 @@ class CheckoutServiceImplTest {
         private final Map<UUID, Integer> callsById = new HashMap<>();
 
         private StubProductClient(Map<UUID, ?> responses) {
-            super("http://localhost");
+            super(RestClient.builder(), "http://localhost");
             this.responses = new HashMap<>(responses);
         }
 
@@ -378,7 +379,7 @@ class CheckoutServiceImplTest {
         private final List<ReservationCall> releases = new ArrayList<>();
 
         private StubInventoryClient(Map<UUID, InventoryGetResponse> inventoryByProductId) {
-            super("http://localhost");
+            super(RestClient.builder(), "http://localhost");
             this.inventoryByProductId = new HashMap<>(inventoryByProductId);
         }
 
@@ -435,7 +436,7 @@ class CheckoutServiceImplTest {
         }
 
         private StubOrderClient(RuntimeException failure, OrderResponse response) {
-            super("http://localhost");
+            super(RestClient.builder(), "http://localhost");
             this.failure = failure;
             this.response = response;
         }
@@ -484,7 +485,7 @@ class CheckoutServiceImplTest {
         }
 
         private StubPaymentClient(RuntimeException failure, PaymentResponse response) {
-            super("http://localhost");
+            super(RestClient.builder(), "http://localhost");
             this.failure = failure;
             this.response = response;
         }

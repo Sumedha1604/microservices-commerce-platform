@@ -18,8 +18,8 @@ public class InventoryClient extends DownstreamClient {
 
     private final RestClient restClient;
 
-    public InventoryClient(@Value("${checkout.services.inventory-url}") String baseUrl) {
-        this.restClient = RestClient.builder().baseUrl(baseUrl).build();
+    public InventoryClient(RestClient.Builder restClientBuilder, @Value("${checkout.services.inventory-url}") String baseUrl) {
+        this.restClient = restClientBuilder.baseUrl(baseUrl).build();
     }
 
     public InventoryGetResponse getInventoryByProductId(UUID productId) {

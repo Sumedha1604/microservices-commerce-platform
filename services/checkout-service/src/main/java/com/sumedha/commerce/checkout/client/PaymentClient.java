@@ -16,8 +16,8 @@ public class PaymentClient extends DownstreamClient {
 
     private final RestClient restClient;
 
-    public PaymentClient(@Value("${checkout.services.payment-url}") String baseUrl) {
-        this.restClient = RestClient.builder().baseUrl(baseUrl).build();
+    public PaymentClient(RestClient.Builder restClientBuilder, @Value("${checkout.services.payment-url}") String baseUrl) {
+        this.restClient = restClientBuilder.baseUrl(baseUrl).build();
     }
 
     public PaymentResponse createPayment(CreatePaymentRequest request) {

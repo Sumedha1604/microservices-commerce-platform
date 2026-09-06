@@ -22,6 +22,7 @@ services:
       AUTH_DB_USERNAME: auth_user
       AUTH_DB_PASSWORD: auth_password
       AUTH_SERVER_PORT: 8081
+      JAVA_TOOL_OPTIONS: "-Xmx224m -XX:MaxMetaspaceSize=160m -XX:ReservedCodeCacheSize=48m -XX:MaxDirectMemorySize=32m -Xss512k"
     ports:
       - "8081:8081"
     healthcheck:
@@ -56,6 +57,7 @@ services:
       USER_DB_USERNAME: user_user
       USER_DB_PASSWORD: user_password
       USER_SERVER_PORT: 8082
+      JAVA_TOOL_OPTIONS: "-Xmx224m -XX:MaxMetaspaceSize=160m -XX:ReservedCodeCacheSize=48m -XX:MaxDirectMemorySize=32m -Xss512k"
     ports:
       - "8082:8082"
     healthcheck:
@@ -90,6 +92,7 @@ services:
       PRODUCT_DB_USERNAME: product_user
       PRODUCT_DB_PASSWORD: product_password
       PRODUCT_SERVER_PORT: 8083
+      JAVA_TOOL_OPTIONS: "-Xmx224m -XX:MaxMetaspaceSize=160m -XX:ReservedCodeCacheSize=48m -XX:MaxDirectMemorySize=32m -Xss512k"
     ports:
       - "8083:8083"
     healthcheck:
@@ -124,6 +127,7 @@ services:
       INVENTORY_DB_USERNAME: inventory_user
       INVENTORY_DB_PASSWORD: inventory_password
       INVENTORY_SERVER_PORT: 8084
+      JAVA_TOOL_OPTIONS: "-Xmx224m -XX:MaxMetaspaceSize=160m -XX:ReservedCodeCacheSize=48m -XX:MaxDirectMemorySize=32m -Xss512k"
     ports:
       - "8084:8084"
     healthcheck:
@@ -158,6 +162,7 @@ services:
       CART_DB_USERNAME: cart_user
       CART_DB_PASSWORD: cart_password
       CART_SERVER_PORT: 8085
+      JAVA_TOOL_OPTIONS: "-Xmx224m -XX:MaxMetaspaceSize=160m -XX:ReservedCodeCacheSize=48m -XX:MaxDirectMemorySize=32m -Xss512k"
     ports:
       - "8085:8085"
     healthcheck:
@@ -192,6 +197,7 @@ services:
       ORDER_DB_USERNAME: order_user
       ORDER_DB_PASSWORD: order_password
       ORDER_SERVER_PORT: 8086
+      JAVA_TOOL_OPTIONS: "-Xmx224m -XX:MaxMetaspaceSize=160m -XX:ReservedCodeCacheSize=48m -XX:MaxDirectMemorySize=32m -Xss512k"
     ports:
       - "8086:8086"
     healthcheck:
@@ -226,6 +232,7 @@ services:
       PAYMENT_DB_USERNAME: payment_user
       PAYMENT_DB_PASSWORD: payment_password
       PAYMENT_SERVER_PORT: 8087
+      JAVA_TOOL_OPTIONS: "-Xmx224m -XX:MaxMetaspaceSize=160m -XX:ReservedCodeCacheSize=48m -XX:MaxDirectMemorySize=32m -Xss512k"
     ports:
       - "8087:8087"
     healthcheck:
@@ -243,6 +250,7 @@ services:
       dockerfile: services/checkout-service/Dockerfile
     environment:
       CHECKOUT_SERVER_PORT: 8088
+      JAVA_TOOL_OPTIONS: "-Xmx224m -XX:MaxMetaspaceSize=160m -XX:ReservedCodeCacheSize=48m -XX:MaxDirectMemorySize=32m -Xss512k"
       PRODUCT_SERVICE_URL: http://product:8083
       INVENTORY_SERVICE_URL: http://inventory:8084
       CART_SERVICE_URL: http://cart:8085
@@ -273,6 +281,7 @@ services:
       dockerfile: services/api-gateway/Dockerfile
     environment:
       GATEWAY_SERVER_PORT: 8080
+      JAVA_TOOL_OPTIONS: "-Xmx224m -XX:MaxMetaspaceSize=160m -XX:ReservedCodeCacheSize=48m -XX:MaxDirectMemorySize=32m -Xss512k"
       AUTH_SERVICE_URL: http://auth:8081
       USER_SERVICE_URL: http://user:8082
       PRODUCT_SERVICE_URL: http://product:8083
