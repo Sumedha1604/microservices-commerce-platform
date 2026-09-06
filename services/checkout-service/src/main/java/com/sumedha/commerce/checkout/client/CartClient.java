@@ -16,8 +16,8 @@ public class CartClient extends DownstreamClient {
 
     private final RestClient restClient;
 
-    public CartClient(@Value("${checkout.services.cart-url}") String baseUrl) {
-        this.restClient = RestClient.builder().baseUrl(baseUrl).build();
+    public CartClient(RestClient.Builder restClientBuilder, @Value("${checkout.services.cart-url}") String baseUrl) {
+        this.restClient = restClientBuilder.baseUrl(baseUrl).build();
     }
 
     public CartGetResponse getCart(UUID cartId) {

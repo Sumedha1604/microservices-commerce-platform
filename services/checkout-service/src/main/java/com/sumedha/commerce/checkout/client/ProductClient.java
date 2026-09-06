@@ -16,8 +16,8 @@ public class ProductClient extends DownstreamClient {
 
     private final RestClient restClient;
 
-    public ProductClient(@Value("${checkout.services.product-url}") String baseUrl) {
-        this.restClient = RestClient.builder().baseUrl(baseUrl).build();
+    public ProductClient(RestClient.Builder restClientBuilder, @Value("${checkout.services.product-url}") String baseUrl) {
+        this.restClient = restClientBuilder.baseUrl(baseUrl).build();
     }
 
     public ProductGetResponse getProduct(UUID productId) {

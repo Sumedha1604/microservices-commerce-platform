@@ -4,7 +4,7 @@ COPY pom.xml ./
 COPY shared ./shared
 COPY services ./services
 COPY tests ./tests
-RUN --mount=type=cache,target=/root/.m2 mvn -pl shared/common-core install -DskipTests \
+RUN mvn -pl services/auth-service -am install -DskipTests \
     && mvn -f services/auth-service/pom.xml package spring-boot:repackage -DskipTests
 FROM eclipse-temurin:21-jre
 RUN addgroup --system app && adduser --system --ingroup app app

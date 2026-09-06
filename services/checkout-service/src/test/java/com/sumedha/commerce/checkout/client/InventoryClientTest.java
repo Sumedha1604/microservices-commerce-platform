@@ -4,6 +4,7 @@ import com.sumedha.commerce.checkout.dto.downstream.inventory.InventoryGetRespon
 import com.sumedha.commerce.checkout.dto.downstream.inventory.ReserveReleaseInventoryRequest;
 import com.sumedha.commerce.common.core.exception.InternalServerException;
 import org.junit.jupiter.api.Test;
+import org.springframework.web.client.RestClient;
 
 import java.util.UUID;
 
@@ -21,7 +22,7 @@ class InventoryClientTest {
             server.respond(200, response);
             server.respond(200, response);
             server.respond(200, response);
-            InventoryClient client = new InventoryClient(server.baseUrl());
+            InventoryClient client = new InventoryClient(RestClient.builder(), server.baseUrl());
 
             InventoryGetResponse inventory = client.getInventoryByProductId(productId);
             assertEquals("GET", server.lastRequest().method());
@@ -46,7 +47,7 @@ class InventoryClientTest {
             server.respond(500, "{}");
 
             assertThrows(InternalServerException.class,
-                    () -> new InventoryClient(server.baseUrl()).getInventoryByProductId(UUID.randomUUID()));
+                    () -> new InventoryClient(RestClient.builder(), server.baseUrl()).getInventoryByProductId(UUID.randomUUID()));
         }
     }
 

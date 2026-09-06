@@ -3,6 +3,7 @@ package com.sumedha.commerce.checkout.client;
 import com.sumedha.commerce.checkout.dto.downstream.payment.CreatePaymentRequest;
 import com.sumedha.commerce.checkout.dto.downstream.payment.PaymentResponse;
 import org.junit.jupiter.api.Test;
+import org.springframework.web.client.RestClient;
 
 import java.math.BigDecimal;
 import java.util.UUID;
@@ -20,7 +21,7 @@ class PaymentClientTest {
             server.respond(201, paymentResponse(paymentId, orderId, userId));
             CreatePaymentRequest request = new CreatePaymentRequest(orderId, userId, new BigDecimal("25.00"), "USD");
 
-            PaymentResponse payment = new PaymentClient(server.baseUrl()).createPayment(request);
+            PaymentResponse payment = new PaymentClient(RestClient.builder(), server.baseUrl()).createPayment(request);
 
             assertEquals("POST", server.lastRequest().method());
             assertEquals("/api/v1/payments", server.lastRequest().path());

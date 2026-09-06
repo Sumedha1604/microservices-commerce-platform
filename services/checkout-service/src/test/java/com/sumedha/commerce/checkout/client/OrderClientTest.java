@@ -4,6 +4,7 @@ import com.sumedha.commerce.checkout.dto.downstream.order.CreateOrderItemRequest
 import com.sumedha.commerce.checkout.dto.downstream.order.CreateOrderRequest;
 import com.sumedha.commerce.checkout.dto.downstream.order.OrderResponse;
 import org.junit.jupiter.api.Test;
+import org.springframework.web.client.RestClient;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -22,7 +23,7 @@ class OrderClientTest {
         try (DownstreamClientTestServer server = new DownstreamClientTestServer()) {
             server.respond(201, response);
             server.respond(200, response);
-            OrderClient client = new OrderClient(server.baseUrl());
+            OrderClient client = new OrderClient(RestClient.builder(), server.baseUrl());
             CreateOrderRequest request = new CreateOrderRequest(userId, "USD", List.of(
                     new CreateOrderItemRequest(productId, "Product", "SKU-1", new BigDecimal("12.50"), 2)));
 

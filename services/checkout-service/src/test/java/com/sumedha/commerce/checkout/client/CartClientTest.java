@@ -3,6 +3,7 @@ package com.sumedha.commerce.checkout.client;
 import com.sumedha.commerce.checkout.dto.downstream.cart.CartGetResponse;
 import com.sumedha.commerce.common.core.exception.ResourceNotFoundException;
 import org.junit.jupiter.api.Test;
+import org.springframework.web.client.RestClient;
 
 import java.util.UUID;
 
@@ -23,7 +24,7 @@ class CartClientTest {
                     + "\",\"productId\":\"" + productId + "\",\"quantity\":2,\"createdAt\":\"2026-01-01T00:00:00Z\",\"updatedAt\":\"2026-01-01T00:00:00Z\"}]"
                     + ",\"createdAt\":\"2026-01-01T00:00:00Z\",\"updatedAt\":\"2026-01-01T00:00:00Z\"},\"timestamp\":\"2026-01-01T00:00:00Z\"}");
 
-            CartGetResponse cart = new CartClient(server.baseUrl()).getCart(cartId);
+            CartGetResponse cart = new CartClient(RestClient.builder(), server.baseUrl()).getCart(cartId);
 
             assertEquals("GET", server.lastRequest().method());
             assertEquals("/api/v1/carts/" + cartId, server.lastRequest().path());
@@ -38,7 +39,7 @@ class CartClientTest {
         try (DownstreamClientTestServer server = new DownstreamClientTestServer()) {
             server.respond(404, "{}");
 
-            assertThrows(ResourceNotFoundException.class, () -> new CartClient(server.baseUrl()).getCart(UUID.randomUUID()));
+            assertThrows(ResourceNotFoundException.class, () -> new CartClient(RestClient.builder(), server.baseUrl()).getCart(UUID.randomUUID()));
         }
     }
 }
