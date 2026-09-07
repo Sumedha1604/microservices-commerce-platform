@@ -8,8 +8,11 @@ import com.sumedha.commerce.payment.dto.request.FailPaymentRequest;
 import com.sumedha.commerce.payment.dto.response.PaymentResponse;
 import com.sumedha.commerce.payment.entity.Payment;
 import com.sumedha.commerce.payment.mapper.PaymentMapper;
+import com.sumedha.commerce.payment.messaging.PaymentAuthorizedInternalEvent;
+import com.sumedha.commerce.payment.messaging.PaymentFailedInternalEvent;
 import com.sumedha.commerce.payment.repository.PaymentRepository;
 import org.hibernate.exception.ConstraintViolationException;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -25,9 +28,11 @@ public class PaymentServiceImpl implements PaymentService {
     private static final String ORDER_ID_UNIQUE_CONSTRAINT = "uq_payments_order_id";
 
     private final PaymentRepository payments;
+    private final ApplicationEventPublisher domainEvents;
 
-    public PaymentServiceImpl(PaymentRepository payments) {
+    public PaymentServiceImpl(PaymentRepository payments, ApplicationEventPublisher domainEvents) {
         this.payments = payments;
+        this.domainEvents = domainEvents;
     }
 
     @Transactional
@@ -84,6 +89,11 @@ public class PaymentServiceImpl implements PaymentService {
     public PaymentResponse authorize(UUID paymentId, AuthorizePaymentRequest request) {
         Payment payment = payment(paymentId);
         payment.authorize(request.provider(), request.providerReference());
+        // Registered on the current transaction; published to Kafka only AFTER_COMMIT.
+        // An illegal transition above throws before this line, so nothing is emitted.
+        domainEvents.publishEvent(new PaymentAuthorizedInternalEvent(
+                payment.getId(), payment.getOrderId(), payment.getUserId(),
+                payment.getAmount(), payment.getCurrency()));
         return PaymentMapper.toResponse(payment);
     }
 
@@ -98,6 +108,9 @@ public class PaymentServiceImpl implements PaymentService {
     public PaymentResponse fail(UUID paymentId, FailPaymentRequest request) {
         Payment payment = payment(paymentId);
         payment.fail(request.reason());
+        // failureReason is read back from the entity (sanitized/truncated), not the raw request.
+        domainEvents.publishEvent(new PaymentFailedInternalEvent(
+                payment.getId(), payment.getOrderId(), payment.getUserId(), payment.getFailureReason()));
         return PaymentMapper.toResponse(payment);
     }
 

@@ -11,6 +11,20 @@ spring:
       ddl-auto: validate
   flyway:
     enabled: true
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:29092}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+      acks: all
+      retries: 10
+      properties:
+        enable.idempotence: true
+        max.in.flight.requests.per.connection: 5
+        delivery.timeout.ms: 120000
+    template:
+      # Producer spans + W3C traceparent injection via Micrometer/OpenTelemetry.
+      observation-enabled: true
 server:
   port: ${PAYMENT_SERVER_PORT:8087}
 management:

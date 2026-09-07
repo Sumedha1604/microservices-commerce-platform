@@ -1,0 +1,76 @@
+# Opt-in local Kafka broker overlay.
+#
+# Layer this on top of the platform base compose file. It adds a single broker and
+# points the two services that speak to it at that broker; it does not modify
+# tests/end-to-end/compose.yml, and no other service is wired to Kafka.
+#
+#   docker compose \
+#     -f tests/end-to-end/compose.yml \
+#     -f infrastructure/kafka/compose.kafka.yml \
+#     up -d kafka payment order
+#
+# Single-node KRaft (no ZooKeeper), replication factor 1, auto topic creation
+# disabled. Host tooling connects on localhost:29092; containers use kafka:9092.
+#
+# Without this overlay both services fall back to localhost:29092 and simply find no
+# broker: payment-service logs the lost publication, order-service starts no listener.
+# The synchronous checkout path is unaffected either way.
+
+services:
+  kafka:
+    image: apache/kafka:3.9.1
+    environment:
+      # --- KRaft single-node: this node is both broker and controller ---
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      CLUSTER_ID: 5L6g3nShT-eMCtK--X86sw
+
+      # --- Listeners: internal (containers), controller, host ---
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093,PLAINTEXT_HOST://0.0.0.0:29092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:29092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,CONTROLLER:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+
+      # --- Single-node durability / topic policy ---
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_DEFAULT_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_LOG_DIRS: /var/lib/kafka/data
+
+      # --- Conservative footprint: the platform already runs 9 JVMs + 8 Postgres
+      #     + Prometheus/Loki/Promtail/Grafana/Tempo on the same host ---
+      KAFKA_HEAP_OPTS: "-Xmx512m -Xms512m"
+    ports:
+      - "29092:29092"
+    volumes:
+      - kafka-data:/var/lib/kafka/data
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list || exit 1"]
+      interval: 10s
+      timeout: 10s
+      retries: 15
+      start_period: 30s
+
+  # Producer of payment.events.v1 (declares that topic via KafkaAdmin).
+  payment:
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+    depends_on:
+      kafka:
+        condition: service_healthy
+
+  # Consumer of payment.events.v1 in group "order-service" (declares the .DLT topic).
+  order:
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+    depends_on:
+      kafka:
+        condition: service_healthy
+
+volumes:
+  kafka-data:

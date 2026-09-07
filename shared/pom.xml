@@ -16,5 +16,6 @@
 
     <modules>
         <module>common-core</module>
+        <module>common-events</module>
     </modules>
 </project>
