@@ -6,6 +6,7 @@ import com.sumedha.commerce.payment.dto.request.CreatePaymentRequest;
 import com.sumedha.commerce.payment.dto.response.PaymentResponse;
 import com.sumedha.commerce.payment.entity.Payment;
 import com.sumedha.commerce.payment.enums.PaymentStatus;
+import com.sumedha.commerce.payment.messaging.PaymentEventPublisher;
 import com.sumedha.commerce.payment.repository.PaymentRepository;
 import com.sumedha.commerce.payment.service.PaymentService;
 import org.junit.jupiter.api.BeforeEach;
@@ -17,6 +18,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 import org.testcontainers.containers.PostgreSQLContainer;
@@ -43,9 +45,24 @@ import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-@SpringBootTest
+@SpringBootTest(properties = {
+        // This test is about Postgres, not messaging. KafkaAdmin must not create topics...
+        "spring.kafka.admin.auto-create=false",
+        // ...and the bootstrap address must never be the developer's local broker, so a stray
+        // connection could not reach it. Nothing actually connects: see the mocked publisher.
+        "spring.kafka.bootstrap-servers=localhost:59997"
+})
 @Testcontainers
 class PaymentPostgresIntegrationTest {
+
+    /**
+     * Replaces the Kafka publication boundary with a no-op. Payment transitions still raise
+     * their internal events and the AFTER_COMMIT relay still runs, but nothing is ever handed
+     * to KafkaTemplate - so no producer is created, no connection is opened, and no event can
+     * reach a real broker.
+     */
+    @MockitoBean
+    private PaymentEventPublisher paymentEventPublisher;
 
     @Container
     static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>("postgres:16-alpine")

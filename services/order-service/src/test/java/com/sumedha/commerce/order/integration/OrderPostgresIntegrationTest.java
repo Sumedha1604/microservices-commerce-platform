@@ -48,7 +48,16 @@ import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-@SpringBootTest
+@SpringBootTest(properties = {
+        // This test is about Postgres, not messaging: no listener may start, so no consumer
+        // group is joined and no records are consumed...
+        "spring.kafka.listener.auto-startup=false",
+        // ...KafkaAdmin must not create the dead-letter topic...
+        "spring.kafka.admin.auto-create=false",
+        // ...and the bootstrap address must never be the developer's local broker, so nothing
+        // could reach it even if something tried to connect.
+        "spring.kafka.bootstrap-servers=localhost:59997"
+})
 @Testcontainers
 class OrderPostgresIntegrationTest {
 
