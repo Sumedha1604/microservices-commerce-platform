@@ -7,18 +7,17 @@ import com.sumedha.commerce.payment.dto.request.CreatePaymentRequest;
 import com.sumedha.commerce.payment.dto.request.FailPaymentRequest;
 import com.sumedha.commerce.payment.dto.response.PaymentResponse;
 import com.sumedha.commerce.payment.entity.Payment;
+import com.sumedha.commerce.payment.entity.PaymentOutboxEvent;
 import com.sumedha.commerce.payment.enums.PaymentStatus;
-import com.sumedha.commerce.payment.messaging.PaymentAuthorizedInternalEvent;
-import com.sumedha.commerce.payment.messaging.PaymentFailedInternalEvent;
+import com.sumedha.commerce.payment.messaging.PaymentOutboxEventFactory;
+import com.sumedha.commerce.payment.repository.PaymentOutboxEventRepository;
 import com.sumedha.commerce.payment.repository.PaymentRepository;
 import org.hibernate.exception.ConstraintViolationException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DataIntegrityViolationException;
 
 import java.math.BigDecimal;
@@ -28,11 +27,11 @@ import java.util.Optional;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -43,7 +42,13 @@ class PaymentServiceImplTest {
     PaymentRepository payments;
 
     @Mock
-    ApplicationEventPublisher domainEvents;
+    PaymentOutboxEventRepository outboxEvents;
+
+    @Mock
+    PaymentOutboxEventFactory outboxFactory;
+
+    @Mock
+    PaymentOutboxEvent outboxEvent;
 
     PaymentServiceImpl service;
     UUID paymentId;
@@ -52,7 +57,9 @@ class PaymentServiceImplTest {
 
     @BeforeEach
     void setUp() {
-        service = new PaymentServiceImpl(payments, domainEvents);
+        service = new PaymentServiceImpl(payments, outboxEvents, outboxFactory);
+        lenient().when(outboxFactory.paymentAuthorized(any(Payment.class))).thenReturn(outboxEvent);
+        lenient().when(outboxFactory.paymentFailed(any(Payment.class))).thenReturn(outboxEvent);
         paymentId = UUID.randomUUID();
         orderId = UUID.randomUUID();
         userId = UUID.randomUUID();
@@ -358,47 +365,33 @@ class PaymentServiceImplTest {
         assertThrows(ResourceNotFoundException.class, () -> service.refund(paymentId));
     }
 
-    // ---- internal domain events (published to Kafka AFTER_COMMIT by PaymentEventRelay) ----
+    // ---- transactional outbox creation ----
 
     @Test
-    void authorizeRaisesExactlyOnePaymentAuthorizedInternalEventFromPersistedState() {
+    void authorizePersistsExactlyOneAuthorizedOutboxEvent() {
         Payment payment = pendingPayment();
         when(payments.findById(payment.getId())).thenReturn(Optional.of(payment));
 
         service.authorize(payment.getId(), new AuthorizePaymentRequest("stripe", "ref-1"));
 
-        ArgumentCaptor<Object> captor = ArgumentCaptor.forClass(Object.class);
-        verify(domainEvents).publishEvent(captor.capture());
-        assertEquals(1, captor.getAllValues().size());
-        PaymentAuthorizedInternalEvent event = assertInstanceOf(
-                PaymentAuthorizedInternalEvent.class, captor.getValue());
-        assertEquals(payment.getId(), event.paymentId());
-        assertEquals(orderId, event.orderId());
-        assertEquals(userId, event.userId());
-        assertEquals(0, new BigDecimal("10.00").compareTo(event.amount()));
-        assertEquals("USD", event.currency());
+        verify(outboxFactory).paymentAuthorized(payment);
+        verify(outboxEvents).saveAndFlush(outboxEvent);
     }
 
     @Test
-    void failRaisesExactlyOnePaymentFailedInternalEventWithSanitizedReason() {
+    void failPersistsExactlyOneFailedOutboxEventAfterSanitizingReason() {
         Payment payment = pendingPayment();
         when(payments.findById(payment.getId())).thenReturn(Optional.of(payment));
 
         service.fail(payment.getId(), new FailPaymentRequest("  card declined  "));
 
-        ArgumentCaptor<Object> captor = ArgumentCaptor.forClass(Object.class);
-        verify(domainEvents).publishEvent(captor.capture());
-        PaymentFailedInternalEvent event = assertInstanceOf(
-                PaymentFailedInternalEvent.class, captor.getValue());
-        assertEquals(payment.getId(), event.paymentId());
-        assertEquals(orderId, event.orderId());
-        assertEquals(userId, event.userId());
-        assertEquals("card declined", event.failureReason());
-        assertEquals(payment.getFailureReason(), event.failureReason());
+        assertEquals("card declined", payment.getFailureReason());
+        verify(outboxFactory).paymentFailed(payment);
+        verify(outboxEvents).saveAndFlush(outboxEvent);
     }
 
     @Test
-    void illegalAuthorizeTransitionRaisesNoInternalEvent() {
+    void illegalAuthorizeTransitionCreatesNoOutboxEvent() {
         Payment payment = pendingPayment();
         payment.authorize("stripe", "ref-1");
         when(payments.findById(payment.getId())).thenReturn(Optional.of(payment));
@@ -406,11 +399,11 @@ class PaymentServiceImplTest {
         assertThrows(ConflictException.class,
                 () -> service.authorize(payment.getId(), new AuthorizePaymentRequest("stripe", "ref-2")));
 
-        verify(domainEvents, never()).publishEvent(any());
+        verify(outboxEvents, never()).saveAndFlush(any());
     }
 
     @Test
-    void illegalFailTransitionRaisesNoInternalEvent() {
+    void illegalFailTransitionCreatesNoOutboxEvent() {
         Payment payment = pendingPayment();
         payment.authorize("stripe", "ref-1");
         payment.capture();
@@ -419,21 +412,21 @@ class PaymentServiceImplTest {
         assertThrows(ConflictException.class,
                 () -> service.fail(payment.getId(), new FailPaymentRequest("too late")));
 
-        verify(domainEvents, never()).publishEvent(any());
+        verify(outboxEvents, never()).saveAndFlush(any());
     }
 
     @Test
-    void missingPaymentRaisesNoInternalEvent() {
+    void missingPaymentCreatesNoOutboxEvent() {
         when(payments.findById(paymentId)).thenReturn(Optional.empty());
 
         assertThrows(ResourceNotFoundException.class,
                 () -> service.authorize(paymentId, new AuthorizePaymentRequest("stripe", "ref-1")));
 
-        verify(domainEvents, never()).publishEvent(any());
+        verify(outboxEvents, never()).saveAndFlush(any());
     }
 
     @Test
-    void nonPublishingTransitionsRaiseNoInternalEvent() {
+    void nonPublishingTransitionsCreateNoAdditionalOutboxEvent() {
         Payment payment = pendingPayment();
         payment.authorize("stripe", "ref-1");
         when(payments.findById(payment.getId())).thenReturn(Optional.of(payment));
@@ -441,6 +434,6 @@ class PaymentServiceImplTest {
         service.capture(payment.getId());
         service.refund(payment.getId());
 
-        verify(domainEvents, never()).publishEvent(any());
+        verify(outboxEvents, never()).saveAndFlush(any());
     }
 }

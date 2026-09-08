@@ -16,9 +16,9 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
  * consumed it.
  *
  * <p>Opt-in: the Kafka overlay is not part of the base E2E stack, so this is skipped unless
- * {@code -De2e.kafka=true} is passed. Without the overlay payment-service just logs the lost
- * publication and the order stays PENDING - which would be a real failure of this assertion, not
- * of the synchronous checkout path.
+ * {@code -De2e.kafka=true} is passed. Without the overlay the durable outbox remains pending and
+ * the order stays PENDING - which would be a real failure of this assertion, not of the
+ * synchronous checkout path.
  */
 @EnabledIfSystemProperty(named = "e2e.kafka", matches = "true")
 class CheckoutPaymentAuthorizationE2ETest extends E2ETestBase {

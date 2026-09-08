@@ -21,7 +21,9 @@ spring:
       properties:
         enable.idempotence: true
         max.in.flight.requests.per.connection: 5
-        delivery.timeout.ms: 120000
+        max.block.ms: 5000
+        request.timeout.ms: 5000
+        delivery.timeout.ms: 10000
     template:
       # Producer spans + W3C traceparent injection via Micrometer/OpenTelemetry.
       observation-enabled: true
@@ -52,3 +54,12 @@ management:
 logging:
   pattern:
     correlation: "[traceId=%X{traceId:-} spanId=%X{spanId:-}]"
+
+payment:
+  outbox:
+    enabled: ${PAYMENT_OUTBOX_ENABLED:true}
+    poll-interval: ${PAYMENT_OUTBOX_POLL_INTERVAL:1s}
+    batch-size: ${PAYMENT_OUTBOX_BATCH_SIZE:20}
+    send-timeout: ${PAYMENT_OUTBOX_SEND_TIMEOUT:15s}
+    initial-backoff: ${PAYMENT_OUTBOX_INITIAL_BACKOFF:1s}
+    max-backoff: ${PAYMENT_OUTBOX_MAX_BACKOFF:5m}

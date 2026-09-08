@@ -8,11 +8,13 @@ import com.sumedha.commerce.payment.dto.request.FailPaymentRequest;
 import com.sumedha.commerce.payment.dto.response.PaymentResponse;
 import com.sumedha.commerce.payment.entity.Payment;
 import com.sumedha.commerce.payment.mapper.PaymentMapper;
-import com.sumedha.commerce.payment.messaging.PaymentAuthorizedInternalEvent;
-import com.sumedha.commerce.payment.messaging.PaymentFailedInternalEvent;
+import com.sumedha.commerce.payment.entity.PaymentOutboxEvent;
+import com.sumedha.commerce.payment.messaging.PaymentOutboxEventFactory;
+import com.sumedha.commerce.payment.repository.PaymentOutboxEventRepository;
 import com.sumedha.commerce.payment.repository.PaymentRepository;
 import org.hibernate.exception.ConstraintViolationException;
-import org.springframework.context.ApplicationEventPublisher;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -24,15 +26,19 @@ import java.util.UUID;
 @Service
 public class PaymentServiceImpl implements PaymentService {
 
+    private static final Logger log = LoggerFactory.getLogger(PaymentServiceImpl.class);
     private static final int MONEY_SCALE = 2;
     private static final String ORDER_ID_UNIQUE_CONSTRAINT = "uq_payments_order_id";
 
     private final PaymentRepository payments;
-    private final ApplicationEventPublisher domainEvents;
+    private final PaymentOutboxEventRepository outboxEvents;
+    private final PaymentOutboxEventFactory outboxFactory;
 
-    public PaymentServiceImpl(PaymentRepository payments, ApplicationEventPublisher domainEvents) {
+    public PaymentServiceImpl(PaymentRepository payments, PaymentOutboxEventRepository outboxEvents,
+                              PaymentOutboxEventFactory outboxFactory) {
         this.payments = payments;
-        this.domainEvents = domainEvents;
+        this.outboxEvents = outboxEvents;
+        this.outboxFactory = outboxFactory;
     }
 
     @Transactional
@@ -89,11 +95,7 @@ public class PaymentServiceImpl implements PaymentService {
     public PaymentResponse authorize(UUID paymentId, AuthorizePaymentRequest request) {
         Payment payment = payment(paymentId);
         payment.authorize(request.provider(), request.providerReference());
-        // Registered on the current transaction; published to Kafka only AFTER_COMMIT.
-        // An illegal transition above throws before this line, so nothing is emitted.
-        domainEvents.publishEvent(new PaymentAuthorizedInternalEvent(
-                payment.getId(), payment.getOrderId(), payment.getUserId(),
-                payment.getAmount(), payment.getCurrency()));
+        persistOutbox(outboxFactory.paymentAuthorized(payment));
         return PaymentMapper.toResponse(payment);
     }
 
@@ -108,9 +110,7 @@ public class PaymentServiceImpl implements PaymentService {
     public PaymentResponse fail(UUID paymentId, FailPaymentRequest request) {
         Payment payment = payment(paymentId);
         payment.fail(request.reason());
-        // failureReason is read back from the entity (sanitized/truncated), not the raw request.
-        domainEvents.publishEvent(new PaymentFailedInternalEvent(
-                payment.getId(), payment.getOrderId(), payment.getUserId(), payment.getFailureReason()));
+        persistOutbox(outboxFactory.paymentFailed(payment));
         return PaymentMapper.toResponse(payment);
     }
 
@@ -130,5 +130,11 @@ public class PaymentServiceImpl implements PaymentService {
 
     private Payment payment(UUID id) {
         return payments.findById(id).orElseThrow(() -> new ResourceNotFoundException("Payment not found"));
+    }
+
+    private void persistOutbox(PaymentOutboxEvent event) {
+        outboxEvents.saveAndFlush(event);
+        log.info("Outbox event persisted eventId={} eventType={} aggregateId={}",
+                event.getEventId(), event.getEventType(), event.getAggregateId());
     }
 }

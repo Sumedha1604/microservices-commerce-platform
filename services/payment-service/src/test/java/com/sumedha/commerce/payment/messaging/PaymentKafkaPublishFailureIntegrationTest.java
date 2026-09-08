@@ -40,6 +40,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 @Testcontainers
 @TestPropertySource(properties = {
         "spring.kafka.bootstrap-servers=localhost:59998",
+        "payment.outbox.enabled=false",
         "spring.kafka.producer.retries=0",
         "spring.kafka.producer.properties.enable.idempotence=false",
         "spring.kafka.producer.properties.max.block.ms=1000",
@@ -71,10 +72,12 @@ class PaymentKafkaPublishFailureIntegrationTest {
 
     @Autowired private PaymentService paymentService;
     @Autowired private PaymentRepository payments;
+    @Autowired private PaymentOutboxBatchProcessor outboxProcessor;
+    @Autowired private com.sumedha.commerce.payment.repository.PaymentOutboxEventRepository outboxEvents;
 
     @Test
     void kafkaOutageAfterCommitLeavesThePaymentAuthorizedAndDoesNotThrow() throws Exception {
-        Logger publisherLogger = (Logger) LoggerFactory.getLogger(PaymentEventPublisher.class);
+        Logger publisherLogger = (Logger) LoggerFactory.getLogger(PaymentOutboxBatchProcessor.class);
         ListAppender<ILoggingEvent> logs = new ListAppender<>();
         logs.start();
         publisherLogger.addAppender(logs);
@@ -90,8 +93,13 @@ class PaymentKafkaPublishFailureIntegrationTest {
             assertEquals(PaymentStatus.AUTHORIZED, persisted.getStatus(),
                     "the committed payment transition must survive a Kafka publication failure");
 
+            assertDoesNotThrow(outboxProcessor::publishNextBatch);
+            var outbox = outboxEvents.findAll().getFirst();
+            assertEquals(com.sumedha.commerce.payment.enums.OutboxEventStatus.PENDING, outbox.getStatus());
+            assertEquals(1, outbox.getAttemptCount());
+            assertTrue(outbox.getLastError() != null && !outbox.getLastError().isBlank());
             assertTrue(awaitPublishFailureLogged(logs),
-                    "the lost publication must be surfaced as an ERROR, not silently swallowed");
+                    "the retryable publication failure must be surfaced as a WARN");
         } finally {
             publisherLogger.detachAppender(logs);
         }
@@ -100,8 +108,8 @@ class PaymentKafkaPublishFailureIntegrationTest {
     private static boolean awaitPublishFailureLogged(ListAppender<ILoggingEvent> logs) throws InterruptedException {
         long deadline = System.nanoTime() + Duration.ofSeconds(20).toNanos();
         while (System.nanoTime() < deadline) {
-            boolean logged = logs.list.stream().anyMatch(event -> event.getLevel() == Level.ERROR
-                    && event.getFormattedMessage().contains("lost until the outbox milestone"));
+            boolean logged = logs.list.stream().anyMatch(event -> event.getLevel() == Level.WARN
+                    && event.getFormattedMessage().contains("retained for retry"));
             if (logged) {
                 return true;
             }

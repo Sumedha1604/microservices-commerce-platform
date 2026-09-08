@@ -97,12 +97,26 @@ delivered in publication order. **That is the only ordering guarantee.** There i
 between different orders, and the listener runs with `concurrency: 3` (one consumer per
 partition), so events for different orders are processed in parallel.
 
+Publication order itself is preserved per aggregate by the outbox. A row is claimed only when no
+earlier unpublished row exists for the same `aggregate_id`, ordered by `(created_at, id)`. So a
+payment that goes `AUTHORIZED` then `FAILED` cannot publish `PaymentFailed` while its
+`PaymentAuthorized` row is still retrying - which would otherwise dead-letter the late
+`PaymentAuthorized` against an order the consumer had already cancelled. The guard is scoped to
+one aggregate: an order stuck in backoff never holds back a different order, and a single batch
+therefore claims at most one row per aggregate.
+
 ## Delivery and deduplication
 
-Delivery is **at-least-once**. The Kafka offset commit and the order-service database
-transaction are not atomic, so the same `eventId` can be delivered more than once - after a
-rebalance, a crash between the database commit and the offset commit, or a redelivery following
-a transient failure.
+Delivery is **at-least-once**. payment-service writes the payment transition and the complete
+serialized envelope to `payment_outbox_event` in one PostgreSQL transaction. A scheduled
+publisher claims bounded batches with `FOR UPDATE SKIP LOCKED`, waits for Kafka acknowledgement,
+and only then marks each row `PUBLISHED`. A failed send leaves the row `PENDING`, increments its
+attempt count, records the error, and schedules a bounded exponential-backoff retry.
+
+Kafka acknowledgement and the later outbox status commit are not atomic. If payment-service
+crashes between them, the same stored envelope is published again. Its persisted `eventId` is
+never regenerated. The consumer can also redeliver after a rebalance or a crash between its
+database commit and offset commit.
 
 Redelivery is made safe by the `processed_event` table, not by any transactional-messaging
 mechanism:
@@ -158,19 +172,28 @@ replaying is a manual `kafka-console-consumer` / `kafka-console-producer` exerci
 
 ## Tracing
 
-`KafkaTemplate` observation injects the W3C `traceparent` header on send and the listener
-container continues it on receive, so one trace spans the HTTP request, the producer and the
-consumer. See [../architecture/observability.md](../architecture/observability.md).
+`KafkaTemplate` observation still creates producer observations and injects a W3C `traceparent`
+header, which the listener continues. Publishing is now asynchronous to the payment HTTP
+request, however, and trace context is not persisted in the outbox. The producer/consumer trace
+therefore does not pretend to be a continuation of the completed HTTP trace. Durable trace
+continuation is deferred until it can be implemented with supported Micrometer/OpenTelemetry
+context propagation rather than hand-built trace headers. See
+[../architecture/observability.md](../architecture/observability.md).
 
 ## Known limitations
 
-- **The database commit and the Kafka publish are not atomic.** payment-service publishes from
-  an `AFTER_COMMIT` listener: if the process dies, or the broker is unreachable, in the window
-  between the payment transaction committing and the send completing, the payment state is
-  durable but the event is lost, and the order stays `PENDING` forever. The failure is logged,
-  never retried beyond the producer's own `retries`, and never rolled back into the payment.
-  A Transactional Outbox closes this gap and is deferred.
+- **Kafka acknowledgement and the outbox status update are not atomic.** A crash after the
+  broker acknowledges but before `PUBLISHED` commits causes a duplicate publish with the same
+  `eventId`. Consumer deduplication makes this safe; it is not exactly-once delivery.
 - **This is not exactly-once delivery.** It is at-least-once plus consumer-side deduplication.
+  Per-aggregate publication ordering does not change that: a row can still be published twice.
+- **Published outbox rows are never cleaned up.** `payment_outbox_event` and its indexes grow
+  without bound; retention or archival is a future concern.
+- **Retry timing assumes roughly aligned clocks.** Eligibility is evaluated with the database's
+  `now()` while `next_attempt_at` is written from the publishing instance's clock, so significant
+  skew shifts retry timing (it does not affect correctness or ordering).
+- **`attempt_count` counts failed publish attempts,** not total attempts: a row published on its
+  first try stays at `0`.
 - **No DLT replay tooling** (above).
 - **Nothing releases the inventory reservation** when an order is cancelled by a
   `PaymentFailed` event. The reservation checkout made still stands. Ownership of that release

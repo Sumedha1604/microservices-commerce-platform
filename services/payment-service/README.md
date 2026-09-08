@@ -57,6 +57,9 @@ mvn -pl services/payment-service -am spring-boot:run
 ```
 
 Flyway runs `V1__create_payment_schema.sql` automatically on startup, creating `payments`.
+`V2__create_payment_outbox_event.sql` creates the durable payment event outbox. Authorization
+and failure write payment state plus a `PENDING` envelope atomically; a scheduled publisher
+claims bounded batches and marks them `PUBLISHED` only after Kafka acknowledgement.
 
 ## Tests
 
@@ -75,6 +78,12 @@ Integration coverage (`PaymentPostgresIntegrationTest`) uses Testcontainers to r
 | `PAYMENT_DB_USERNAME` | `payment_user` | Datasource username |
 | `PAYMENT_DB_PASSWORD` | `change-me` | Datasource password |
 | `PAYMENT_SERVER_PORT` | `8087` | HTTP port |
+| `PAYMENT_OUTBOX_ENABLED` | `true` | Enable scheduled outbox publishing |
+| `PAYMENT_OUTBOX_POLL_INTERVAL` | `1s` | Delay between polling cycles |
+| `PAYMENT_OUTBOX_BATCH_SIZE` | `20` | Maximum rows claimed per cycle |
+| `PAYMENT_OUTBOX_SEND_TIMEOUT` | `15s` | Maximum acknowledgement wait per send |
+| `PAYMENT_OUTBOX_INITIAL_BACKOFF` | `1s` | Backoff before the first retry of a failed send |
+| `PAYMENT_OUTBOX_MAX_BACKOFF` | `5m` | Ceiling for the exponential retry backoff |
 
 ## Docker
 
@@ -85,4 +94,8 @@ Integration coverage (`PaymentPostgresIntegrationTest`) uses Testcontainers to r
 - Service port: `8087`.
 - `/actuator/health` is exposed for orchestration; other actuator endpoints are not.
 - `orderId` and `userId` are UUID references only — no foreign key to Order Service or User Service, no cross-service database access.
-- **Not implemented:** Order Service integration, a real payment provider (Stripe/Adyen/PayPal), real money movement, webhook processing, Kafka, Saga/distributed transactions, checkout orchestration, inventory communication, authentication, payment retries, and provider reconciliation.
+- Payment outcome events use at-least-once delivery; Order Service deduplicates by the persisted
+  outbox `eventId`. This is not exactly-once delivery.
+- **Not implemented:** a real payment provider (Stripe/Adyen/PayPal), real money movement,
+  webhook processing, Saga orchestration, inventory event flows, authentication, and provider
+  reconciliation.
