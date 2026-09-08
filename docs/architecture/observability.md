@@ -51,25 +51,29 @@ In Grafana Explore, select **Loki** and query `{service="order"}`. The `service`
 
 ## Tracing across Kafka (implemented)
 
-Payment events carry the W3C trace context, so the asynchronous hop does not break a trace.
-`spring.kafka.template.observation-enabled` makes `KafkaTemplate` inject a `traceparent` header
-on send, and `spring.kafka.listener.observation-enabled` makes the listener container continue
-that context on receive. Nothing injects headers by hand.
+The transactional outbox deliberately does not persist or reconstruct the original HTTP trace
+context. The scheduled publisher therefore starts a new producer trace when it drains an outbox
+row. `spring.kafka.template.observation-enabled` makes `KafkaTemplate` inject that producer
+trace's `traceparent` header on send, and `spring.kafka.listener.observation-enabled` makes the
+listener container continue it on receive. Nothing injects headers by hand.
 
-A single `POST /api/v1/payments/{paymentId}/authorize` produces one connected trace:
+The resulting traces are:
 
 ```
-payment-service  SERVER    http post /api/v1/payments/{paymentId}/authorize
+payment-service  SERVER      http post /api/v1/payments/{paymentId}/authorize
+
 payment-service  PRODUCER    payment.events.v1 send
 order-service    CONSUMER      payment.events.v1 process
 ```
 
-The consumer span's parent is the producer span, and the same `traceId` appears in the
-payment-service request log, the record's `traceparent` header, and the order-service consumer
-log. Because `logging.pattern.correlation` puts `traceId`/`spanId` in the MDC, a trace can be
-pivoted to its logs in Loki with a plain line filter - `{service=~"payment|order"} |= "<traceId>"` -
-and back. `traceId` and `spanId` are deliberately **not** Loki labels: they are unbounded
-cardinality and belong in the log body.
+The consumer span's parent is the producer span, so the same producer `traceId` appears in the
+record's `traceparent` header and the order-service consumer log. It is not the HTTP request's
+trace ID. Durable continuation or linking is deferred until it can be implemented with supported
+Spring/OpenTelemetry APIs rather than hand-built tracing headers. Because
+`logging.pattern.correlation` puts `traceId`/`spanId` in the MDC, the producer/consumer trace can
+still be pivoted to its logs in Loki with a plain line filter -
+`{service=~"payment|order"} |= "<traceId>"` - and back. `traceId` and `spanId` are deliberately
+**not** Loki labels: they are unbounded cardinality and belong in the log body.
 
 ### Kafka metrics actually exposed
 

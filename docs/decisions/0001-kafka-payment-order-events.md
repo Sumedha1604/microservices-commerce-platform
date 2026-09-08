@@ -1,6 +1,6 @@
 # 1. Asynchronous payment-to-order events over Kafka
 
-- **Status:** Accepted
+- **Status:** Accepted; producer reliability consequences superseded by ADR 0002
 - **Date:** 2026-09-07
 - **Scope:** `payment-service`, `order-service`, `shared/common-events`, `infrastructure/kafka`
 
@@ -75,14 +75,10 @@ also continuously proves that the asynchronous path is genuinely additive.
 
 ## Consequences
 
-Accepted, and deliberately not worked around:
+The original producer reliability decision below is superseded by
+[ADR 0002](0002-transactional-outbox.md). The remaining consequences still apply:
 
-- **The database commit and the Kafka send are NOT atomic.** payment-service publishes from an
-  `AFTER_COMMIT` transaction listener. A crash or broker outage in the window between the commit
-  and the send loses the event: the payment is durably `AUTHORIZED` while the order stays
-  `PENDING` forever. The failure is logged and never rolled back into the payment.
-- **A Transactional Outbox is deferred.** It is what closes the gap above, by writing the event
-  to the payment database in the same transaction and relaying it afterwards.
+- payment-service now uses a Transactional Outbox; see ADR 0002 for its at-least-once semantics.
 - **This is NOT exactly-once delivery.** It is at-least-once delivery plus consumer-side
   deduplication through `processed_event`. Effects are idempotent; deliveries are not unique.
 - **Saga orchestration is deferred.** Checkout's compensations remain synchronous and in-process.

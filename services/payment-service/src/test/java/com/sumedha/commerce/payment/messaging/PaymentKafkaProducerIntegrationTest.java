@@ -63,6 +63,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 @EmbeddedKafka(topics = KafkaTopics.PAYMENT_EVENTS_V1, partitions = 3)
 @TestPropertySource(properties = {
         "spring.kafka.bootstrap-servers=${spring.embedded.kafka.brokers}",
+        "payment.outbox.enabled=false",
         "management.opentelemetry.tracing.export.otlp.endpoint=http://localhost:59999/v1/traces"
 })
 class PaymentKafkaProducerIntegrationTest {
@@ -84,6 +85,8 @@ class PaymentKafkaProducerIntegrationTest {
 
     @Autowired private PaymentService paymentService;
     @Autowired private PaymentRepository payments;
+    @Autowired private PaymentOutboxBatchProcessor outboxProcessor;
+    @Autowired private com.sumedha.commerce.payment.repository.PaymentOutboxEventRepository outboxEvents;
     @Autowired private EmbeddedKafkaBroker embeddedKafka;
     @Autowired private PlatformTransactionManager transactionManager;
 
@@ -112,6 +115,7 @@ class PaymentKafkaProducerIntegrationTest {
         if (consumer != null) {
             consumer.close();
         }
+        outboxEvents.deleteAll();
         payments.deleteAll();
     }
 
@@ -125,6 +129,8 @@ class PaymentKafkaProducerIntegrationTest {
                 new CreatePaymentRequest(orderId, userId, java.math.BigDecimal.valueOf(59.97), "USD")).id();
 
         paymentService.authorize(paymentId, new AuthorizePaymentRequest("stripe", "ref-1"));
+        UUID persistedEventId = outboxEvents.findAll().getFirst().getEventId();
+        outboxProcessor.publishNextBatch();
 
         ConsumerRecord<String, String> record = singleRecord();
         assertEquals(orderId.toString(), record.key());
@@ -135,12 +141,15 @@ class PaymentKafkaProducerIntegrationTest {
         EventEnvelope<PaymentAuthorizedEvent> envelope =
                 JSON.readValue(record.value(), new TypeReference<EventEnvelope<PaymentAuthorizedEvent>>() {});
         assertEquals(EventTypes.PAYMENT_AUTHORIZED, envelope.eventType());
+        assertEquals(persistedEventId, envelope.eventId());
         assertEquals(1, envelope.schemaVersion());
         assertEquals(paymentId, envelope.payload().paymentId());
         assertEquals(orderId, envelope.payload().orderId());
         assertEquals(userId, envelope.payload().userId());
         assertEquals(0, java.math.BigDecimal.valueOf(59.97).compareTo(envelope.payload().amount()));
         assertEquals("USD", envelope.payload().currency());
+        assertEquals(com.sumedha.commerce.payment.enums.OutboxEventStatus.PUBLISHED,
+                outboxEvents.findAll().getFirst().getStatus());
     }
 
     @Test
@@ -150,6 +159,7 @@ class PaymentKafkaProducerIntegrationTest {
                 new CreatePaymentRequest(orderId, UUID.randomUUID(), java.math.BigDecimal.TEN, "USD")).id();
 
         paymentService.fail(paymentId, new FailPaymentRequest("  card declined  "));
+        outboxProcessor.publishNextBatch();
 
         ConsumerRecord<String, String> record = singleRecord();
         assertEquals(orderId.toString(), record.key());
@@ -172,6 +182,7 @@ class PaymentKafkaProducerIntegrationTest {
         UUID paymentId = paymentService.create(
                 new CreatePaymentRequest(orderId, UUID.randomUUID(), java.math.BigDecimal.TEN, "USD")).id();
         paymentService.authorize(paymentId, new AuthorizePaymentRequest("stripe", "ref-1"));
+        outboxProcessor.publishNextBatch();
 
         ConsumerRecord<String, String> record = singleRecord();
         assertNull(record.headers().lastHeader("__TypeId__"));
@@ -187,12 +198,13 @@ class PaymentKafkaProducerIntegrationTest {
 
         new TransactionTemplate(transactionManager).executeWithoutResult(status -> {
             paymentService.authorize(paymentId, new AuthorizePaymentRequest("stripe", "ref-1"));
-            // still inside the transaction: AFTER_COMMIT has not run
+            // still inside the payment transaction: only the uncommitted outbox row exists
             assertTrue(pollRecords(Duration.ofSeconds(1)).isEmpty(),
                     "no event may be published before the payment transaction commits");
         });
 
-        // transaction committed: the event now appears
+        outboxProcessor.publishNextBatch();
+        // transaction committed and the publisher ran: the event now appears
         ConsumerRecord<String, String> record = singleRecord();
         assertEquals(orderId.toString(), record.key());
         assertEquals(PaymentStatus.AUTHORIZED, payments.findById(paymentId).orElseThrow().getStatus());
@@ -211,6 +223,7 @@ class PaymentKafkaProducerIntegrationTest {
 
         assertTrue(pollRecords(Duration.ofSeconds(2)).isEmpty(),
                 "a rolled-back transition must publish nothing");
+        assertEquals(0, outboxProcessor.publishNextBatch());
         Payment reloaded = payments.findById(paymentId).orElseThrow();
         assertEquals(PaymentStatus.PENDING, reloaded.getStatus(), "rollback must leave the payment PENDING");
     }
