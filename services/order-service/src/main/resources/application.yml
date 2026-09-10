@@ -27,10 +27,21 @@ spring:
       # Consumer spans continuing the producer's W3C traceparent.
       observation-enabled: true
     producer:
-      # Only used for dead-letter republishing.
+      # Shared by dead-letter republishing and the compensation outbox publisher.
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
       value-serializer: org.apache.kafka.common.serialization.StringSerializer
       acks: all
+      properties:
+        enable.idempotence: true
+        # Bounded like payment-service's publisher: with the broker down, a send must fail fast
+        # rather than hold the outbox row locks for the client's 60s/120s defaults.
+        max.block.ms: 5000
+        request.timeout.ms: 5000
+        delivery.timeout.ms: 10000
+    template:
+      # Producer spans + W3C traceparent injection for the compensation publisher. The dead-letter
+      # template ignores this and keeps observation off, to preserve the original record's headers.
+      observation-enabled: true
 order:
   dlt:
     # Consumer group for the DLT inspection listener. Deliberately separate from the business
@@ -38,6 +49,15 @@ order:
     consumer-group: ${ORDER_DLT_CONSUMER_GROUP:order-service-dlt}
     replay:
       send-timeout: ${ORDER_DLT_REPLAY_SEND_TIMEOUT:10s}
+  outbox:
+    # Compensation events (InventoryReleaseRequested) owed to order.compensation.v1.
+    # Disable to hold the publisher still; pending rows stay durable either way.
+    enabled: ${ORDER_OUTBOX_ENABLED:true}
+    poll-interval: ${ORDER_OUTBOX_POLL_INTERVAL:1s}
+    batch-size: ${ORDER_OUTBOX_BATCH_SIZE:20}
+    send-timeout: ${ORDER_OUTBOX_SEND_TIMEOUT:15s}
+    initial-backoff: ${ORDER_OUTBOX_INITIAL_BACKOFF:1s}
+    max-backoff: ${ORDER_OUTBOX_MAX_BACKOFF:5m}
 
 server:
   port: ${ORDER_SERVER_PORT:8086}

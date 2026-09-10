@@ -24,3 +24,16 @@ Migration `V2__add_inventory_version.sql` adds a `version` column to `inventory`
 | `version` | BIGINT | `NOT NULL DEFAULT 0` |
 
 `Inventory.version` is mapped with JPA `@Version`. The column is used for optimistic locking: concurrent stale writes are detected instead of silently overwriting each other. This helps prevent lost updates during concurrent reserve/release/update operations.
+
+## V3: compensation deduplication
+
+Migration `V3__create_processed_event.sql` adds `processed_event`, one row per applied `InventoryReleaseRequested` event from `order.compensation.v1`:
+
+| Column | Type | Constraints |
+|---|---|---|
+| `event_id` | UUID | primary key |
+| `event_type` | VARCHAR(100) | `NOT NULL` |
+| `order_id` | UUID | `NOT NULL`, indexed |
+| `processed_at` | TIMESTAMPTZ | `NOT NULL` |
+
+The row is claimed with `insert … on conflict (event_id) do nothing` in the same transaction as the stock release, so a redelivered event cannot restore stock twice and a failed release leaves no row behind. There are no reservation rows, so this table is the whole idempotency guard. `order_id` is a UUID reference only, with no foreign key to Order Service. See [../events/inventory-compensation.md](../events/inventory-compensation.md).

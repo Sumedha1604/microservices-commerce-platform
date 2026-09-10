@@ -56,7 +56,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
         "spring.kafka.admin.auto-create=false",
         // ...and the bootstrap address must never be the developer's local broker, so nothing
         // could reach it even if something tried to connect.
-        "spring.kafka.bootstrap-servers=localhost:59997"
+        "spring.kafka.bootstrap-servers=localhost:59997",
+        // ...and the compensation outbox publisher stays parked: this test is not about it,
+        // and a poller looking for work it will never find only adds noise.
+        "order.outbox.enabled=false"
 })
 @Testcontainers
 class OrderPostgresIntegrationTest {

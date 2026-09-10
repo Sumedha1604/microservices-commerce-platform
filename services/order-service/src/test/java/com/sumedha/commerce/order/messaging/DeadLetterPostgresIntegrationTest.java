@@ -72,7 +72,10 @@ import static org.mockito.Mockito.when;
 @SpringBootTest(properties = {
         "spring.kafka.listener.auto-startup=false",
         "spring.kafka.admin.auto-create=false",
-        "spring.kafka.bootstrap-servers=localhost:59997"
+        "spring.kafka.bootstrap-servers=localhost:59997",
+        // ...and the compensation outbox publisher stays parked: this test is not about it,
+        // and a poller looking for work it will never find only adds noise.
+        "order.outbox.enabled=false"
 })
 @Testcontainers
 class DeadLetterPostgresIntegrationTest {
@@ -92,8 +95,12 @@ class DeadLetterPostgresIntegrationTest {
         registry.add("spring.datasource.password", POSTGRES::getPassword);
     }
 
-    /** The replay producer. Mocked so no broker is needed and failures can be injected. */
-    @MockitoBean
+    /**
+     * The replay producer. Mocked so no broker is needed and failures can be injected. Named
+     * explicitly because order-service now declares two String templates - this one for
+     * dead-letter republishing, and an observation-enabled one for compensation.
+     */
+    @MockitoBean(name = "deadLetterKafkaTemplate")
     private KafkaTemplate<String, String> kafkaTemplate;
 
     @Autowired private DeadLetterRecorder recorder;

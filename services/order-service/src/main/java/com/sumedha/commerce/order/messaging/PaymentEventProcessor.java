@@ -1,13 +1,19 @@
 package com.sumedha.commerce.order.messaging;
 
 import com.sumedha.commerce.order.entity.Order;
+import com.sumedha.commerce.order.entity.OrderItem;
 import com.sumedha.commerce.order.entity.ProcessedEvent;
+import com.sumedha.commerce.order.metrics.OrderCompensationMetrics;
+import com.sumedha.commerce.order.repository.OrderItemRepository;
+import com.sumedha.commerce.order.repository.OrderOutboxEventRepository;
 import com.sumedha.commerce.order.repository.OrderRepository;
 import com.sumedha.commerce.order.repository.ProcessedEventRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
 
 /**
  * Applies one payment event to its order and records the {@code processed_event} marker in a
@@ -30,6 +36,18 @@ import org.springframework.transaction.annotation.Transactional;
  *
  * <p>{@code PaymentFailed} on a {@code CONFIRMED} order is valid under the current domain rules
  * ({@code CONFIRMED -> CANCELLED} is allowed) and cancels the order.
+ *
+ * <p><strong>Compensation.</strong> A cancellation that actually happens here also writes one
+ * {@code order_outbox_event} row asking inventory-service to release the stock checkout reserved,
+ * in this same transaction. That is the saga step: the order moving to CANCELLED and the promise
+ * to release its inventory either both commit or neither does. No Kafka call happens inside this
+ * transaction - the durable row is the handoff.
+ *
+ * <p>Compensation is emitted <em>only</em> from this path, and only on a real
+ * {@code PENDING/CONFIRMED -> CANCELLED} transition. It is deliberately not attached to
+ * {@code Order.cancel()} itself: checkout-service cancels orders through the HTTP API in its own
+ * failure handler, having already released those reservations synchronously, and emitting an
+ * event there would release the same stock twice.
  */
 @Service
 public class PaymentEventProcessor {
@@ -48,10 +66,23 @@ public class PaymentEventProcessor {
 
     private final OrderRepository orders;
     private final ProcessedEventRepository processedEvents;
+    private final OrderItemRepository orderItems;
+    private final OrderOutboxEventRepository outboxEvents;
+    private final OrderOutboxEventFactory outboxEventFactory;
+    private final OrderCompensationMetrics compensationMetrics;
 
-    public PaymentEventProcessor(OrderRepository orders, ProcessedEventRepository processedEvents) {
+    public PaymentEventProcessor(OrderRepository orders,
+                                 ProcessedEventRepository processedEvents,
+                                 OrderItemRepository orderItems,
+                                 OrderOutboxEventRepository outboxEvents,
+                                 OrderOutboxEventFactory outboxEventFactory,
+                                 OrderCompensationMetrics compensationMetrics) {
         this.orders = orders;
         this.processedEvents = processedEvents;
+        this.orderItems = orderItems;
+        this.outboxEvents = outboxEvents;
+        this.outboxEventFactory = outboxEventFactory;
+        this.compensationMetrics = compensationMetrics;
     }
 
     /**
@@ -100,11 +131,36 @@ public class PaymentEventProcessor {
         };
     }
 
+    /**
+     * Writes the compensation intent in the caller's transaction.
+     *
+     * <p>An order with no lines produces no event rather than an empty one: there is nothing to
+     * release, and an empty compensation would be noise the consumer has to special-case.
+     */
+    private void requestInventoryRelease(Order order, PaymentEvent.Failed event) {
+        List<OrderItem> items = orderItems.findByOrderId(order.getId());
+        if (items.isEmpty()) {
+            log.warn("Order {} cancelled by event {} has no line items; no inventory release requested",
+                    order.getId(), event.eventId());
+            return;
+        }
+
+        var outboxEvent = outboxEventFactory.inventoryReleaseRequested(
+                order, items, "Payment failed: " + event.payload().failureReason());
+        // saveAndFlush so a constraint failure surfaces here, inside the transaction that
+        // cancelled the order, rather than after it has already committed.
+        outboxEvents.saveAndFlush(outboxEvent);
+        compensationMetrics.persisted();
+        log.info("Compensation queued eventId={} orderId={} lines={} topic={}",
+                outboxEvent.getEventId(), order.getId(), items.size(), outboxEvent.getTopic());
+    }
+
     private Outcome applyFailed(Order order, PaymentEvent.Failed event) {
         return switch (order.getStatus()) {
             // CONFIRMED -> CANCELLED is permitted by the current domain rules.
             case PENDING, CONFIRMED -> {
                 order.cancel();
+                requestInventoryRelease(order, event);
                 log.info("Order {} CANCELLED by event {} (reason: {})",
                         order.getId(), event.eventId(), event.payload().failureReason());
                 yield Outcome.APPLIED;
