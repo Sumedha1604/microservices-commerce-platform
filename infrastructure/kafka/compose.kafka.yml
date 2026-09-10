@@ -1,20 +1,21 @@
 # Opt-in local Kafka broker overlay.
 #
 # Layer this on top of the platform base compose file. It adds a single broker and
-# points the three services that speak to it at that broker; it does not modify
+# points the four services that speak to it at that broker; it does not modify
 # tests/end-to-end/compose.yml, and no other service is wired to Kafka.
 #
 #   docker compose \
 #     -f tests/end-to-end/compose.yml \
 #     -f infrastructure/kafka/compose.kafka.yml \
-#     up -d kafka payment order inventory
+#     up -d kafka payment order inventory notification
 #
 # Single-node KRaft (no ZooKeeper), replication factor 1, auto topic creation
 # disabled. Host tooling connects on localhost:29092; containers use kafka:9092.
 #
-# Without this overlay the three services fall back to localhost:29092 and simply find
+# Without this overlay the four services fall back to localhost:29092 and simply find
 # no broker: payment-service logs the lost publication, order-service starts no listener
-# and retains its compensation rows as PENDING, and inventory-service starts no listener.
+# and retains its compensation rows as PENDING, and inventory-service and
+# notification-service start no listener (no notifications are recorded).
 # The synchronous checkout path is unaffected either way.
 
 services:
@@ -77,6 +78,16 @@ services:
   # Consumer of order.compensation.v1 in group "inventory-service" (declares that
   # stream's .DLT topic). Releases stock reserved for orders whose payment failed.
   inventory:
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+    depends_on:
+      kafka:
+        condition: service_healthy
+
+  # Second, independent consumer of payment.events.v1, in its own group
+  # "notification-service" (declares payment.events.v1.notification.DLT). Records a
+  # durable notification per payment outcome; order-service's offsets are unaffected.
+  notification:
     environment:
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
     depends_on:

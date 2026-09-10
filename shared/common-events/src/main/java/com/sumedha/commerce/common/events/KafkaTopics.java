@@ -18,6 +18,16 @@ public final class KafkaTopics {
     public static final String PAYMENT_EVENTS_V1_DLT = "payment.events.v1.DLT";
 
     /**
+     * notification-service's own dead-letter topic for {@link #PAYMENT_EVENTS_V1}.
+     *
+     * <p>Dead-letter topics belong to the consumer, not the stream: {@link #PAYMENT_EVENTS_V1_DLT}
+     * is order-service's, and its inspection/replay tooling ingests everything on it. A second
+     * consumer of the same stream therefore gets a consumer-qualified name, so a record only
+     * notification-service rejected is never captured - or replayed - as an order-service failure.
+     */
+    public static final String PAYMENT_EVENTS_V1_NOTIFICATION_DLT = "payment.events.v1.notification.DLT";
+
+    /**
      * Inventory-compensation intents published by order-service (InventoryReleaseRequested).
      * Partition key: orderId, so all compensation for one order stays ordered.
      */

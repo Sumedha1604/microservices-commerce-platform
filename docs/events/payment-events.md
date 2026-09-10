@@ -5,22 +5,33 @@ Everything else, including checkout itself, is still synchronous HTTP.
 
 ```
 payment-service  --PaymentAuthorized/PaymentFailed-->  payment.events.v1  -->  order-service
-                                                                                    |
-                                                          (semantic inconsistency)  v
-                                                                       payment.events.v1.DLT
+                                                               |                     |
+                                                               |                     |  (semantic inconsistency)
+                                                               |                     v
+                                                               |           payment.events.v1.DLT
+                                                               |
+                                                               +-->  notification-service  (own consumer group)
+                                                                               |  (unreadable / exhausted retries)
+                                                                               v
+                                                              payment.events.v1.notification.DLT
 ```
+
+notification-service is a second, independent consumer: it records one durable notification per
+event and never affects order processing. Its behaviour is documented in
+[notification-events.md](notification-events.md); everything below describes the order-service
+consumer unless stated otherwise.
 
 ## Topics
 
 | | |
 |---|---|
 | Topic | `payment.events.v1` |
-| Dead-letter topic | `payment.events.v1.DLT` |
+| Dead-letter topic | `payment.events.v1.DLT` (order-service); `payment.events.v1.notification.DLT` (notification-service) |
 | Record key | `orderId` (UTF-8 string) |
 | Partitions | 3 (local development) |
 | Replication factor | 1 (local development, single broker) |
 | Key/value serialization | `StringSerializer` / `StringDeserializer` |
-| Consumer group | `order-service` |
+| Consumer groups | `order-service`; `notification-service` |
 
 Both topics are declared as `NewTopic` beans and created by each service's `KafkaAdmin` on
 startup - `payment.events.v1` by payment-service (its publisher), `payment.events.v1.DLT` by
@@ -247,4 +258,8 @@ docker exec end-to-end-kafka-1 /opt/kafka/bin/kafka-console-consumer.sh \
 # consumer lag
 docker exec end-to-end-kafka-1 /opt/kafka/bin/kafka-consumer-groups.sh \
   --bootstrap-server localhost:9092 --describe --group order-service
+
+# the notification consumer, if notification-service is on the overlay
+docker exec end-to-end-kafka-1 /opt/kafka/bin/kafka-consumer-groups.sh \
+  --bootstrap-server localhost:9092 --describe --group notification-service
 ```
