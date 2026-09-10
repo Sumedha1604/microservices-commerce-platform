@@ -85,7 +85,10 @@ import static org.mockito.Mockito.when;
         partitions = 3)
 @TestPropertySource(properties = {
         "spring.kafka.bootstrap-servers=${spring.embedded.kafka.brokers}",
-        "management.opentelemetry.tracing.export.otlp.endpoint=http://localhost:59999/v1/traces"
+        "management.opentelemetry.tracing.export.otlp.endpoint=http://localhost:59999/v1/traces",
+        // This test does not declare order.compensation.v1, so the compensation publisher
+        // is parked rather than left sending into a topic that does not exist here.
+        "order.outbox.enabled=false"
 })
 class DeadLetterIngestionFailureKafkaIntegrationTest {
 

@@ -149,6 +149,14 @@ already cancelled is not a duplicate and is not silently swallowed. It means pay
 disagree about reality, so the record is preserved on the dead-letter topic for a human to look
 at rather than being dropped.
 
+## Downstream effect of a cancellation
+
+A `PaymentFailed` that actually cancels an order also queues one `InventoryReleaseRequested` event
+in order-service's own outbox, in the **same transaction** as the cancellation, so the stock
+checkout reserved is released asynchronously by inventory-service. That is a separate stream
+(`order.compensation.v1`) with its own contract; `PaymentAuthorized` produces no such event. See
+[inventory-compensation.md](inventory-compensation.md).
+
 ## Retry and dead-lettering
 
 The container's `DefaultErrorHandler` retries a failing record twice with a 1s fixed backoff

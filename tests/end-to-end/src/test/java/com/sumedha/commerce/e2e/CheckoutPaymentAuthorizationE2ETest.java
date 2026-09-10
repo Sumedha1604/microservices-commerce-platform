@@ -4,6 +4,8 @@ import com.fasterxml.jackson.databind.JsonNode;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledIfSystemProperty;
 
+import java.time.Duration;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
@@ -15,6 +17,10 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
  * holds once payment-service has published to {@code payment.events.v1} and order-service has
  * consumed it.
  *
+ * <p>It also proves the negative that matters for compensation: a successful payment must not
+ * release the reservation, so the reserved quantity is watched for several outbox poll cycles
+ * after confirmation.
+ *
  * <p>Opt-in: the Kafka overlay is not part of the base E2E stack, so this is skipped unless
  * {@code -De2e.kafka=true} is passed. Without the overlay the durable outbox remains pending and
  * the order stays PENDING - which would be a real failure of this assertion, not of the
@@ -23,10 +29,13 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 @EnabledIfSystemProperty(named = "e2e.kafka", matches = "true")
 class CheckoutPaymentAuthorizationE2ETest extends E2ETestBase {
 
+    /** Several order-outbox poll cycles (1s each by default): long enough for a wrong release to show. */
+    private static final Duration NO_RELEASE_WINDOW = Duration.ofSeconds(5);
+
     private final PaymentEventE2ESupport api = new PaymentEventE2ESupport(serviceUrls);
 
     @Test
-    void authorizingTheCheckoutPaymentConfirmsTheOrder() throws Exception {
+    void authorizingTheCheckoutPaymentConfirmsTheOrderAndKeepsItsReservation() throws Exception {
         PaymentEventE2ESupport.Checkout checkout = api.checkout();
 
         JsonNode authorized = api.authorizePayment(checkout.paymentId());
@@ -36,5 +45,7 @@ class CheckoutPaymentAuthorizationE2ETest extends E2ETestBase {
         JsonNode order = api.awaitOrderStatus(checkout.orderId(), "CONFIRMED");
         assertEquals(checkout.userId(), api.uuid(order, "userId"));
         api.assertMoney(PaymentEventE2ESupport.EXPECTED_TOTAL, order, "total");
+
+        api.assertReservedQuantityHolds(checkout.productId(), PaymentEventE2ESupport.QUANTITY, NO_RELEASE_WINDOW);
     }
 }

@@ -46,7 +46,10 @@ import static org.mockito.Mockito.doThrow;
 @SpringBootTest(properties = {
         "spring.kafka.listener.auto-startup=false",
         "spring.kafka.admin.auto-create=false",
-        "spring.kafka.bootstrap-servers=localhost:59997"
+        "spring.kafka.bootstrap-servers=localhost:59997",
+        // ...and the compensation outbox publisher stays parked: this test is not about it,
+        // and a poller looking for work it will never find only adds noise.
+        "order.outbox.enabled=false"
 })
 @Testcontainers
 class PaymentEventProcessorPostgresIntegrationTest {

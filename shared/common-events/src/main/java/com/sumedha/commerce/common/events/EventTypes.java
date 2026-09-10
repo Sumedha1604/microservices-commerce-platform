@@ -14,6 +14,9 @@ public final class EventTypes {
     /** {@link com.sumedha.commerce.common.events.payment.PaymentFailedEvent} payload. */
     public static final String PAYMENT_FAILED = "PaymentFailed";
 
+    /** {@link com.sumedha.commerce.common.events.inventory.InventoryReleaseRequestedEvent} payload. */
+    public static final String INVENTORY_RELEASE_REQUESTED = "InventoryReleaseRequested";
+
     private EventTypes() {
         throw new UnsupportedOperationException("Constants class");
     }

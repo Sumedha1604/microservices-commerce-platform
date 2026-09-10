@@ -19,12 +19,16 @@ class ContractConstantsTest {
         assertEquals("payment.events.v1", KafkaTopics.PAYMENT_EVENTS_V1);
         assertEquals("payment.events.v1.DLT", KafkaTopics.PAYMENT_EVENTS_V1_DLT);
         assertTrue(KafkaTopics.PAYMENT_EVENTS_V1_DLT.startsWith(KafkaTopics.PAYMENT_EVENTS_V1));
+        assertEquals("order.compensation.v1", KafkaTopics.ORDER_COMPENSATION_V1);
+        assertEquals("order.compensation.v1.DLT", KafkaTopics.ORDER_COMPENSATION_V1_DLT);
+        assertTrue(KafkaTopics.ORDER_COMPENSATION_V1_DLT.startsWith(KafkaTopics.ORDER_COMPENSATION_V1));
     }
 
     @Test
     void eventTypeDiscriminatorsAreStable() {
         assertEquals("PaymentAuthorized", EventTypes.PAYMENT_AUTHORIZED);
         assertEquals("PaymentFailed", EventTypes.PAYMENT_FAILED);
+        assertEquals("InventoryReleaseRequested", EventTypes.INVENTORY_RELEASE_REQUESTED);
     }
 
     @Test

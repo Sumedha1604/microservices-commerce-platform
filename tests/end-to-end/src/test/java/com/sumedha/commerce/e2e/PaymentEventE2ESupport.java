@@ -40,8 +40,10 @@ final class PaymentEventE2ESupport {
     private static final Duration POLL_INTERVAL = Duration.ofMillis(250);
 
     private static final BigDecimal UNIT_PRICE = new BigDecimal("19.99");
-    private static final int QUANTITY = 3;
-    private static final int STOCKED_QUANTITY = 10;
+    /** Units in the cart, and therefore the units checkout reserves. */
+    static final int QUANTITY = 3;
+    /** Units the inventory row is created with. */
+    static final int STOCKED_QUANTITY = 10;
 
     /** UNIT_PRICE x QUANTITY, as checkout computes it. */
     static final BigDecimal EXPECTED_TOTAL = new BigDecimal("59.97");
@@ -54,8 +56,8 @@ final class PaymentEventE2ESupport {
         this.urls = urls;
     }
 
-    /** The order and payment a real checkout produced, both PENDING. */
-    record Checkout(UUID orderId, UUID paymentId, UUID userId) {
+    /** The order and payment a real checkout produced, both PENDING, and the product it reserved. */
+    record Checkout(UUID orderId, UUID paymentId, UUID userId, UUID productId) {
     }
 
     /**
@@ -78,7 +80,44 @@ final class PaymentEventE2ESupport {
         assertEquals("PENDING", checkout.path("orderStatus").asText());
         assertEquals("PENDING", checkout.path("paymentStatus").asText());
 
-        return new Checkout(uuid(checkout, "orderId"), uuid(checkout, "paymentId"), userId);
+        return new Checkout(uuid(checkout, "orderId"), uuid(checkout, "paymentId"), userId, productId);
+    }
+
+    JsonNode inventoryForProduct(UUID productId) throws Exception {
+        return get(urls.inventory(), "/api/v1/inventory/product/" + productId);
+    }
+
+    /**
+     * Polls the product's reserved quantity until it reaches {@code expected}. A release is two
+     * asynchronous hops behind the payment call - payment outbox to order-service, then order
+     * outbox to inventory-service - so it is never asserted immediately.
+     */
+    JsonNode awaitReservedQuantity(UUID productId, int expected) throws Exception {
+        Instant deadline = Instant.now().plus(EVENT_TIMEOUT);
+        int lastSeen = -1;
+        while (Instant.now().isBefore(deadline)) {
+            JsonNode inventory = inventoryForProduct(productId);
+            lastSeen = inventory.path("reservedQuantity").asInt();
+            if (lastSeen == expected) {
+                return inventory;
+            }
+            Thread.sleep(POLL_INTERVAL.toMillis());
+        }
+        return Assertions.fail("Product " + productId + " reserved quantity never reached " + expected + " within "
+                + EVENT_TIMEOUT + "; last seen " + lastSeen + ". Is inventory-service on the Kafka overlay?");
+    }
+
+    /**
+     * Asserts the reserved quantity stays at {@code expected} for the whole window. Used to prove a
+     * negative - that nothing released the stock - so it has to watch, not glance.
+     */
+    void assertReservedQuantityHolds(UUID productId, int expected, Duration window) throws Exception {
+        Instant until = Instant.now().plus(window);
+        while (Instant.now().isBefore(until)) {
+            assertEquals(expected, inventoryForProduct(productId).path("reservedQuantity").asInt(),
+                    "reserved quantity of product " + productId + " changed");
+            Thread.sleep(POLL_INTERVAL.toMillis());
+        }
     }
 
     JsonNode authorizePayment(UUID paymentId) throws Exception {

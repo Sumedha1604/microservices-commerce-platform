@@ -114,6 +114,34 @@ original topic, Kafka coordinates, replay count). Payloads are deliberately neve
 are served only by the detail endpoint. See
 [../events/dlt-operations.md](../events/dlt-operations.md).
 
+## Inventory compensation (implemented)
+
+When a payment failure cancels an order, order-service queues an `InventoryReleaseRequested`
+event in its own transactional outbox and inventory-service consumes it to release the reserved
+stock. Seven counters cover the two halves:
+
+| Metric | Meaning |
+| --- | --- |
+| `order_compensation_persisted_total` | Compensation rows written inside a business transaction |
+| `order_compensation_publish_total{result="success"}` | Acknowledged publishes |
+| `order_compensation_publish_total{result="failure"}` | Publish attempts the broker did not acknowledge |
+| `inventory_compensation_received_total` | Compensation events received |
+| `inventory_compensation_released_total` | Events that actually released stock |
+| `inventory_compensation_duplicate_ignored_total` | Redeliveries ignored as already applied |
+| `inventory_compensation_failed_total` | Events that could not be applied (retried or dead-lettered) |
+
+Cardinality is fixed by construction: one low-cardinality tag (`result`), nothing derived from
+order ids, product ids, event ids or error text. In a healthy system
+`released + duplicate_ignored` tracks `received`, and `order_compensation_persisted_total` tracks
+`order_compensation_publish_total{result="success"}` with only a short lag. A rising
+`inventory_compensation_failed_total` is the signal worth alerting on: it means stock is staying
+reserved for cancelled orders.
+
+Note that the trace **breaks at the outbox, deliberately**: the payment consumer's span covers the
+database transaction, and publishing happens later in a new trace, because trace context is not
+stored in the outbox row. Correlate the halves by `orderId` and `eventId`. See
+[../events/inventory-compensation.md](../events/inventory-compensation.md).
+
 ## Not yet implemented
 
 - Grafana dashboards/visualization

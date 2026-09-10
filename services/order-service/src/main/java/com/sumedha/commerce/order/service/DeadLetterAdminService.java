@@ -18,6 +18,7 @@ import com.sumedha.commerce.order.metrics.DeadLetterMetrics;
 import com.sumedha.commerce.order.repository.DeadLetterEventRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
@@ -62,13 +63,17 @@ public class DeadLetterAdminService {
 
     private final DeadLetterEventRepository deadLetterEvents;
     private final PaymentEventParser parser;
+    /**
+     * The dead-letter template specifically, not the compensation one: a replay must republish
+     * the stored record as it was, without stamping fresh producer trace context over it.
+     */
     private final KafkaTemplate<String, String> kafkaTemplate;
     private final DeadLetterReplayProperties properties;
     private final DeadLetterMetrics metrics;
 
     public DeadLetterAdminService(DeadLetterEventRepository deadLetterEvents,
                                   PaymentEventParser parser,
-                                  KafkaTemplate<String, String> kafkaTemplate,
+                                  @Qualifier("deadLetterKafkaTemplate") KafkaTemplate<String, String> kafkaTemplate,
                                   DeadLetterReplayProperties properties,
                                   DeadLetterMetrics metrics) {
         this.deadLetterEvents = deadLetterEvents;

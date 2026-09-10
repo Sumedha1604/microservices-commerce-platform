@@ -9,6 +9,7 @@ import org.apache.kafka.common.serialization.StringDeserializer;
 import org.apache.kafka.common.serialization.StringSerializer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.kafka.autoconfigure.KafkaConnectionDetails;
 import org.springframework.boot.kafka.autoconfigure.KafkaProperties;
 import org.springframework.context.annotation.Bean;
@@ -79,13 +80,21 @@ public class KafkaConsumerConfig {
         return new DefaultKafkaProducerFactory<>(config, new StringSerializer(), new StringSerializer());
     }
 
+    /**
+     * The dead-letter republishing template. Observation stays <em>off</em> here so a
+     * dead-lettered record keeps the original send's {@code traceparent} rather than having fresh
+     * producer trace context stamped over it. The compensation publisher uses its own
+     * observation-enabled template, which is why every injection point below names the one it
+     * wants explicitly.
+     */
     @Bean
     KafkaTemplate<String, String> deadLetterKafkaTemplate(ProducerFactory<String, String> deadLetterProducerFactory) {
         return new KafkaTemplate<>(deadLetterProducerFactory);
     }
 
     @Bean
-    CommonErrorHandler paymentEventErrorHandler(KafkaTemplate<String, String> deadLetterKafkaTemplate) {
+    CommonErrorHandler paymentEventErrorHandler(
+            @Qualifier("deadLetterKafkaTemplate") KafkaTemplate<String, String> deadLetterKafkaTemplate) {
         DeadLetterPublishingRecoverer deadLetter = new DeadLetterPublishingRecoverer(
                 deadLetterKafkaTemplate,
                 (record, exception) -> new TopicPartition(KafkaTopics.PAYMENT_EVENTS_V1_DLT, PARTITION_BY_KEY));
