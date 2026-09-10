@@ -22,6 +22,7 @@ import org.springframework.kafka.core.ProducerFactory;
 import org.springframework.kafka.listener.CommonErrorHandler;
 import org.springframework.kafka.listener.ConsumerRecordRecoverer;
 import org.springframework.kafka.listener.DeadLetterPublishingRecoverer;
+import org.springframework.kafka.listener.ContainerProperties;
 import org.springframework.kafka.listener.DefaultErrorHandler;
 import org.springframework.util.backoff.FixedBackOff;
 
@@ -53,6 +54,10 @@ public class KafkaConsumerConfig {
 
     /** Lets Kafka choose the DLT partition from the (preserved) key rather than copying the index. */
     private static final int PARTITION_BY_KEY = -1;
+
+    /** Bounded retry for DLT <em>ingestion</em> failures (a database blip), then log and skip. */
+    static final long DLT_INGEST_RETRY_INTERVAL_MS = 1_000L;
+    static final long DLT_INGEST_MAX_RETRIES = 3L;
 
     @Bean
     ConsumerFactory<String, String> paymentEventConsumerFactory(
@@ -97,6 +102,41 @@ public class KafkaConsumerConfig {
         // A record that can never succeed must not burn the retry budget - dead-letter it at once.
         errorHandler.addNotRetryableExceptions(NonRetryableEventException.class);
         return errorHandler;
+    }
+
+    /**
+     * Container factory for the DLT <em>inspection</em> listener.
+     *
+     * <p>Two things make it deliberately different from the business factory above:
+     * <ul>
+     *   <li><b>No dead-letter recoverer.</b> Its recoverer only logs, so a failure while capturing
+     *       a dead-letter record can never be republished to the dead-letter topic - that would be
+     *       a self-feeding loop.</li>
+     *   <li><b>Single-threaded.</b> The DLT is low volume and ingestion is pure inserts; one
+     *       consumer keeps offset handling and the duplicate check trivial to reason about.</li>
+     * </ul>
+     *
+     * <p>After the bounded retries a record is logged at ERROR and skipped so the partition
+     * cannot stall forever. A malformed payload never reaches that path at all - it is stored as
+     * inspectable text rather than parsed.
+     */
+    @Bean
+    ConcurrentKafkaListenerContainerFactory<String, String> deadLetterKafkaListenerContainerFactory(
+            ConsumerFactory<String, String> paymentEventConsumerFactory) {
+
+        ConsumerRecordRecoverer logOnly = (record, exception) -> log.error(
+                "Could not capture dead-letter record {}-{}@{} after {} attempts; skipping it so the "
+                        + "DLT partition is not stalled. The record remains on the topic.",
+                record.topic(), record.partition(), record.offset(), DLT_INGEST_MAX_RETRIES + 1, exception);
+
+        ConcurrentKafkaListenerContainerFactory<String, String> factory =
+                new ConcurrentKafkaListenerContainerFactory<>();
+        factory.setConsumerFactory(paymentEventConsumerFactory);
+        factory.setCommonErrorHandler(
+                new DefaultErrorHandler(logOnly, new FixedBackOff(DLT_INGEST_RETRY_INTERVAL_MS, DLT_INGEST_MAX_RETRIES)));
+        factory.setConcurrency(1);
+        factory.getContainerProperties().setAckMode(ContainerProperties.AckMode.RECORD);
+        return factory;
     }
 
     @Bean

@@ -92,6 +92,28 @@ The native Kafka client metrics (`kafka_producer_*`, `kafka_consumer_*`) are **n
 both services declare their own typed producer/consumer factory beans, which backs off Spring
 Boot's `KafkaClientMetrics` binder. Do not write queries or dashboards against those names.
 
+## Dead-letter operations (implemented)
+
+order-service captures every record that reaches `payment.events.v1.DLT` into the
+`dead_letter_event` table and exposes it for inspection and controlled replay. Four counters are
+published to the existing Prometheus registry:
+
+| Metric | Meaning |
+| --- | --- |
+| `order_dlt_captured_total` | Dead-letter records captured into inspection storage |
+| `order_dlt_duplicate_ignored_total` | Redeliveries ignored because the record was already captured |
+| `order_dlt_replay_total{result="success"}` | Replays acknowledged by the broker |
+| `order_dlt_replay_total{result="failure"}` | Replay attempts the broker did not acknowledge |
+
+Cardinality is fixed by construction: one low-cardinality tag (`result`), and nothing derived
+from event ids, order ids, topics or exception text. `order_dlt_captured_total` rising is the
+signal worth alerting on - it means events are being rejected outright.
+
+Capture and replay are logged structurally (record id, `eventId`, `eventType`, `orderId`,
+original topic, Kafka coordinates, replay count). Payloads are deliberately never logged; they
+are served only by the detail endpoint. See
+[../events/dlt-operations.md](../events/dlt-operations.md).
+
 ## Not yet implemented
 
 - Grafana dashboards/visualization
