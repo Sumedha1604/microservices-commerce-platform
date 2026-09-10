@@ -166,9 +166,18 @@ adds diagnostic headers: `kafka_dlt-original-topic`, `-original-partition`, `-or
 The `traceparent` header survives too, so a dead-lettered record can be traced back to the HTTP
 request that produced it.
 
-**There is no replay tooling.** Nothing consumes `payment.events.v1.DLT`, and there is no
-command or endpoint to re-inject a dead-lettered record into the main topic. Inspecting and
-replaying is a manual `kafka-console-consumer` / `kafka-console-producer` exercise today.
+A dedicated listener in its own consumer group (`order-service-dlt`) consumes
+`payment.events.v1.DLT` and stores one durable inspection row per record in `dead_letter_event`,
+including records whose payload cannot be parsed. Operators inspect and replay them through
+`/api/v1/admin/dlt/payment-events`. Replay republishes the stored key and value byte-for-byte to
+the original topic, preserving the `eventId`, and marks the record `REPLAYED` only after the
+broker acknowledges.
+
+Replay is a redelivery, not a repair: `processed_event` deduplication still applies, and an event
+whose rejecting condition still holds is simply dead-lettered again. Those endpoints are not yet
+authorization-protected. See [dlt-operations.md](dlt-operations.md) for the operator guide and
+[../decisions/0003-dlt-inspection-and-replay.md](../decisions/0003-dlt-inspection-and-replay.md)
+for the design.
 
 ## Tracing
 
@@ -187,6 +196,10 @@ context propagation rather than hand-built trace headers. See
   `eventId`. Consumer deduplication makes this safe; it is not exactly-once delivery.
 - **This is not exactly-once delivery.** It is at-least-once plus consumer-side deduplication.
   Per-aggregate publication ordering does not change that: a row can still be published twice.
+- **Operator replay is another at-least-once redelivery,** and the admin endpoints that trigger
+  it are not authorization-protected yet. See [dlt-operations.md](dlt-operations.md).
+- **Captured dead-letter records are never cleaned up.** `dead_letter_event` stores full payloads
+  and has no retention policy.
 - **Published outbox rows are never cleaned up.** `payment_outbox_event` and its indexes grow
   without bound; retention or archival is a future concern.
 - **Retry timing assumes roughly aligned clocks.** Eligibility is evaluated with the database's
@@ -194,7 +207,6 @@ context propagation rather than hand-built trace headers. See
   skew shifts retry timing (it does not affect correctness or ordering).
 - **`attempt_count` counts failed publish attempts,** not total attempts: a row published on its
   first try stays at `0`.
-- **No DLT replay tooling** (above).
 - **Nothing releases the inventory reservation** when an order is cancelled by a
   `PaymentFailed` event. The reservation checkout made still stands. Ownership of that release
   is deferred.

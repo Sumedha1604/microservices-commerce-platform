@@ -140,6 +140,7 @@ class PaymentEventKafkaIntegrationTest {
     void tearDown() {
         producer.close(Duration.ofSeconds(5));
         deadLetters.close();
+        jdbc.update("delete from dead_letter_event");
         jdbc.update("delete from processed_event");
         jdbc.update("delete from order_items");
         jdbc.update("delete from orders");
@@ -204,6 +205,17 @@ class PaymentEventKafkaIntegrationTest {
         }
     }
 
+    /** There are two listener containers now; this is the business one, chosen by its topic. */
+    private ConcurrentMessageListenerContainer<?, ?> businessListenerContainer() {
+        return registry.getListenerContainers().stream()
+                .map(c -> (ConcurrentMessageListenerContainer<?, ?>) c)
+                .filter(c -> List.of(c.getContainerProperties().getTopics())
+                        .contains(KafkaTopics.PAYMENT_EVENTS_V1))
+                .findFirst()
+                .orElseThrow(() -> new AssertionError("no listener container for "
+                        + KafkaTopics.PAYMENT_EVENTS_V1));
+    }
+
     private int markerCount() {
         return jdbc.queryForObject("select count(*) from processed_event", Integer.class);
     }
@@ -266,8 +278,7 @@ class PaymentEventKafkaIntegrationTest {
 
     @Test
     void theListenerRunsInTheOrderServiceGroupOnTheV1TopicWithRecordAcksAndObservation() {
-        ConcurrentMessageListenerContainer<?, ?> container =
-                (ConcurrentMessageListenerContainer<?, ?>) registry.getListenerContainers().iterator().next();
+        ConcurrentMessageListenerContainer<?, ?> container = businessListenerContainer();
 
         assertEquals("order-service", container.getGroupId());
         assertEquals(List.of(KafkaTopics.PAYMENT_EVENTS_V1),

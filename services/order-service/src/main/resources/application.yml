@@ -31,6 +31,14 @@ spring:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
       value-serializer: org.apache.kafka.common.serialization.StringSerializer
       acks: all
+order:
+  dlt:
+    # Consumer group for the DLT inspection listener. Deliberately separate from the business
+    # group so capturing dead letters never interferes with payment-event consumption.
+    consumer-group: ${ORDER_DLT_CONSUMER_GROUP:order-service-dlt}
+    replay:
+      send-timeout: ${ORDER_DLT_REPLAY_SEND_TIMEOUT:10s}
+
 server:
   port: ${ORDER_SERVER_PORT:8086}
 management:
