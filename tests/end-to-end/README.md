@@ -31,3 +31,25 @@ order transition is asynchronous, so the terminal status is polled with a bounde
 
 Low-level Kafka behaviour - deduplication, bounded retry, dead-lettering - is covered by the
 order-service integration tests, not repeated here.
+
+## Notification tests (opt-in)
+
+`CheckoutNotificationE2ETest` reuses the same real checkout fixture, authorizes or fails the payment,
+waits for order-service to reach CONFIRMED/CANCELLED, and asserts that notification-service - a
+second, independent consumer of the same `payment.events.v1` record - records exactly one
+`PAYMENT_AUTHORIZED`/`PAYMENT_FAILED` notification for the order (`INTERNAL`, `CREATED`), and that
+the count stays at one. It needs notification-service on the Kafka overlay as well, so it is gated by
+a second flag and the existing Kafka command above is unaffected:
+
+```
+docker compose \
+  -f tests/end-to-end/compose.yml \
+  -f infrastructure/kafka/compose.kafka.yml \
+  up -d kafka payment order inventory product cart checkout notification
+
+mvn -pl tests/end-to-end test -De2e.kafka=true -De2e.notification=true
+```
+
+Mind the ~4 GB Docker VM: that is eight JVMs plus Kafka. Duplicate delivery, dead-lettering and
+bounded retry for the notification consumer are covered by notification-service's own integration
+tests.

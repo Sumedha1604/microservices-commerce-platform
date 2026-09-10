@@ -19,6 +19,10 @@ class ContractConstantsTest {
         assertEquals("payment.events.v1", KafkaTopics.PAYMENT_EVENTS_V1);
         assertEquals("payment.events.v1.DLT", KafkaTopics.PAYMENT_EVENTS_V1_DLT);
         assertTrue(KafkaTopics.PAYMENT_EVENTS_V1_DLT.startsWith(KafkaTopics.PAYMENT_EVENTS_V1));
+        assertEquals("payment.events.v1.notification.DLT", KafkaTopics.PAYMENT_EVENTS_V1_NOTIFICATION_DLT);
+        assertTrue(KafkaTopics.PAYMENT_EVENTS_V1_NOTIFICATION_DLT.startsWith(KafkaTopics.PAYMENT_EVENTS_V1));
+        assertTrue(!KafkaTopics.PAYMENT_EVENTS_V1_NOTIFICATION_DLT.equals(KafkaTopics.PAYMENT_EVENTS_V1_DLT),
+                "each consumer of payment.events.v1 owns a distinct dead-letter topic");
         assertEquals("order.compensation.v1", KafkaTopics.ORDER_COMPENSATION_V1);
         assertEquals("order.compensation.v1.DLT", KafkaTopics.ORDER_COMPENSATION_V1_DLT);
         assertTrue(KafkaTopics.ORDER_COMPENSATION_V1_DLT.startsWith(KafkaTopics.ORDER_COMPENSATION_V1));

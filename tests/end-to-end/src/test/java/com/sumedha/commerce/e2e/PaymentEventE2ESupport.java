@@ -159,6 +159,41 @@ final class PaymentEventE2ESupport {
                 + "; last status was " + lastSeen + ". Is the Kafka overlay running?");
     }
 
+    /** The page of notifications notification-service has recorded for one order. */
+    JsonNode notificationsForOrder(UUID orderId) throws Exception {
+        return get(urls.notification(), "/api/v1/notifications/order/" + orderId);
+    }
+
+    /**
+     * Polls notification-service until the order has exactly {@code expectedCount} notifications and
+     * returns them. The record is written by a second, independent consumer of the payment event, so
+     * it is never asserted immediately.
+     */
+    JsonNode awaitNotificationsForOrder(UUID orderId, int expectedCount) throws Exception {
+        Instant deadline = Instant.now().plus(EVENT_TIMEOUT);
+        long lastSeen = -1;
+        while (Instant.now().isBefore(deadline)) {
+            JsonNode page = notificationsForOrder(orderId);
+            lastSeen = page.path("totalElements").asLong();
+            if (lastSeen == expectedCount) {
+                return page.path("items");
+            }
+            Thread.sleep(POLL_INTERVAL.toMillis());
+        }
+        return Assertions.fail("Order " + orderId + " never had " + expectedCount + " notification(s) within "
+                + EVENT_TIMEOUT + "; last seen " + lastSeen + ". Is notification-service on the Kafka overlay?");
+    }
+
+    /** Asserts the order's notification count stays at {@code expected} for the whole window. */
+    void assertNotificationCountHolds(UUID orderId, int expected, Duration window) throws Exception {
+        Instant until = Instant.now().plus(window);
+        while (Instant.now().isBefore(until)) {
+            assertEquals(expected, notificationsForOrder(orderId).path("totalElements").asInt(),
+                    "notification count of order " + orderId + " changed");
+            Thread.sleep(POLL_INTERVAL.toMillis());
+        }
+    }
+
     private ObjectNode categoryRequest(String unique) {
         return objectMapper.createObjectNode()
                 .put("name", "Kafka E2E Category " + unique)

@@ -13,7 +13,8 @@ public record ServiceUrls(
         String cart,
         String order,
         String payment,
-        String checkout
+        String checkout,
+        String notification
 ) {
     private static final String CONFIG_RESOURCE = "e2e.properties";
 
@@ -34,7 +35,8 @@ public record ServiceUrls(
                 resolve("e2e.cart.base-url", "E2E_CART_BASE_URL", defaults),
                 resolve("e2e.order.base-url", "E2E_ORDER_BASE_URL", defaults),
                 resolve("e2e.payment.base-url", "E2E_PAYMENT_BASE_URL", defaults),
-                resolve("e2e.checkout.base-url", "E2E_CHECKOUT_BASE_URL", defaults)
+                resolve("e2e.checkout.base-url", "E2E_CHECKOUT_BASE_URL", defaults),
+                resolve("e2e.notification.base-url", "E2E_NOTIFICATION_BASE_URL", defaults)
         );
     }
 

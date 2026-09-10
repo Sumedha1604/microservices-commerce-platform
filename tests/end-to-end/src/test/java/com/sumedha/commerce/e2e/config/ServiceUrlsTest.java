@@ -16,5 +16,6 @@ class ServiceUrlsTest {
         assertEquals("http://localhost:8086", urls.order());
         assertEquals("http://localhost:8087", urls.payment());
         assertEquals("http://localhost:8088", urls.checkout());
+        assertEquals("http://localhost:8089", urls.notification());
     }
 }

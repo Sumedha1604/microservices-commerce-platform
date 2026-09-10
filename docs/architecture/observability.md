@@ -4,9 +4,9 @@
 
 Prometheus is the metrics backend for local development.
 
-- All 9 services expose `/actuator/health` and `/actuator/prometheus` (Micrometer + `micrometer-registry-prometheus`).
+- All 10 services expose `/actuator/health` and `/actuator/prometheus` (Micrometer + `micrometer-registry-prometheus`).
 - Each service tags its metrics with a stable `application` label (e.g. `application=order-service`), so series can be filtered/grouped per service.
-- Prometheus config: [`infrastructure/observability/prometheus.yml`](../../infrastructure/observability/prometheus.yml) — scrapes all 9 services on their container DNS names/ports every 15s.
+- Prometheus config: [`infrastructure/observability/prometheus.yml`](../../infrastructure/observability/prometheus.yml) — scrapes all 10 services on their container DNS names/ports every 15s.
 - Prometheus Compose overlay: [`infrastructure/observability/compose.prometheus.yml`](../../infrastructure/observability/compose.prometheus.yml) — runs Prometheus on port 9090.
 
 ### Running it
@@ -21,7 +21,7 @@ Prometheus UI: http://localhost:9090
 
 `api-gateway` (8080), `auth-service` (8081), `user-service` (8082), `product-service` (8083),
 `inventory-service` (8084), `cart-service` (8085), `order-service` (8086), `payment-service` (8087),
-`checkout-service` (8088).
+`checkout-service` (8088), `notification-service` (8089).
 
 ### Example queries
 
@@ -47,7 +47,7 @@ docker compose \
 - Loki: http://localhost:3100
 - Prometheus: http://localhost:9090
 
-In Grafana Explore, select **Loki** and query `{service="order"}`. The `service` label is the Docker Compose service name; all application services can be queried the same way (for example, `api-gateway`, `auth`, `user`, `product`, `inventory`, `cart`, `order`, `payment`, and `checkout`). The `container_name` and `stream` labels are also available.
+In Grafana Explore, select **Loki** and query `{service="order"}`. The `service` label is the Docker Compose service name; all application services can be queried the same way (for example, `api-gateway`, `auth`, `user`, `product`, `inventory`, `cart`, `order`, `payment`, `checkout`, and `notification`). The `container_name` and `stream` labels are also available.
 
 ## Tracing across Kafka (implemented)
 
@@ -86,10 +86,12 @@ Only the Micrometer observation metrics are present on `/actuator/prometheus`:
 - `spring_kafka_listener_seconds{,_max}` and `spring_kafka_listener_active_seconds{,_max}` on
   order-service, tagged `messaging_source_name="payment.events.v1"`,
   `messaging_kafka_consumer_group="order-service"`, and `error` (`none`, or the exception simple
-  name for dead-lettered records).
+  name for dead-lettered records). notification-service exposes the same listener family with
+  `messaging_kafka_consumer_group="notification-service"`, plus `spring_kafka_template_*` for its
+  own dead-letter template.
 
 The native Kafka client metrics (`kafka_producer_*`, `kafka_consumer_*`) are **not** exposed:
-both services declare their own typed producer/consumer factory beans, which backs off Spring
+these services declare their own typed producer/consumer factory beans, which backs off Spring
 Boot's `KafkaClientMetrics` binder. Do not write queries or dashboards against those names.
 
 ## Dead-letter operations (implemented)
@@ -141,6 +143,38 @@ Note that the trace **breaks at the outbox, deliberately**: the payment consumer
 database transaction, and publishing happens later in a new trace, because trace context is not
 stored in the outbox row. Correlate the halves by `orderId` and `eventId`. See
 [../events/inventory-compensation.md](../events/inventory-compensation.md).
+
+## Notifications (implemented)
+
+notification-service consumes `payment.events.v1` in its own group (`notification-service`) and
+records one notification per `PaymentAuthorized`/`PaymentFailed`. Four counters:
+
+| Metric | Meaning |
+| --- | --- |
+| `notification_events_received_total` | Payment events delivered to the listener (each attempt) |
+| `notification_persisted_total{type="PAYMENT_AUTHORIZED"\|"PAYMENT_FAILED"}` | Notifications durably recorded |
+| `notification_duplicate_ignored_total` | Deliveries ignored because the `eventId` was already handled |
+| `notification_failed_total` | Attempts that failed and were retried or dead-lettered |
+
+Cardinality is fixed by construction: `type` is the only tag and has exactly two values; nothing is
+derived from event, order or user ids or error text. (`persisted`, not `created`: the Prometheus
+client strips a `_created` suffix from counter names.) In a healthy system
+`persisted + duplicate_ignored` tracks `received`. A rising `notification_failed_total` means payment
+events are reaching `payment.events.v1.notification.DLT`.
+
+Logs carry `notificationId`, `eventId`, `eventType` and `orderId`; payloads are never logged.
+
+The consumer continues the payment producer's W3C trace, the same way order-service does, so one
+producer span has two consumer children:
+
+```
+payment-service       PRODUCER   payment.events.v1 send
+order-service         CONSUMER     payment.events.v1 process
+notification-service  CONSUMER     payment.events.v1 process
+```
+
+The dead-letter template has observation disabled, so a dead-lettered record keeps its original
+`traceparent`. See [../events/notification-events.md](../events/notification-events.md).
 
 ## Not yet implemented
 
