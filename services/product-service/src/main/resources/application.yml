@@ -11,6 +11,24 @@ spring:
       ddl-auto: validate
   flyway:
     enabled: true
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:29092}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+      acks: all
+      retries: 10
+      properties:
+        enable.idempotence: true
+        max.in.flight.requests.per.connection: 5
+        # Bounded like payment-service: with the broker down a send fails fast instead of holding
+        # the claimed outbox row locks for the client's 60s/120s defaults.
+        max.block.ms: 5000
+        request.timeout.ms: 5000
+        delivery.timeout.ms: 10000
+    template:
+      # Producer spans + W3C traceparent injection via Micrometer/OpenTelemetry.
+      observation-enabled: true
 server:
   port: ${PRODUCT_SERVER_PORT:8083}
 management:
@@ -38,3 +56,14 @@ management:
 logging:
   pattern:
     correlation: "[traceId=%X{traceId:-} spanId=%X{spanId:-}]"
+
+product:
+  outbox:
+    # Product lifecycle events (ProductUpserted, ProductDeleted) owed to product.events.v1.
+    # Disable to hold the publisher still; pending rows stay durable either way.
+    enabled: ${PRODUCT_OUTBOX_ENABLED:true}
+    poll-interval: ${PRODUCT_OUTBOX_POLL_INTERVAL:1s}
+    batch-size: ${PRODUCT_OUTBOX_BATCH_SIZE:20}
+    send-timeout: ${PRODUCT_OUTBOX_SEND_TIMEOUT:15s}
+    initial-backoff: ${PRODUCT_OUTBOX_INITIAL_BACKOFF:1s}
+    max-backoff: ${PRODUCT_OUTBOX_MAX_BACKOFF:5m}

@@ -53,3 +53,25 @@ mvn -pl tests/end-to-end test -De2e.kafka=true -De2e.notification=true
 Mind the ~4 GB Docker VM: that is eight JVMs plus Kafka. Duplicate delivery, dead-lettering and
 bounded retry for the notification consumer are covered by notification-service's own integration
 tests.
+
+## Product search test (opt-in)
+
+`ProductSearchE2ETest` creates a category and a product through product-service, activates it, and
+then polls search **through the API gateway** (`/api/v1/search/products`) with a bounded timeout
+until the product is found. It renames the product and waits for search to reflect the new name
+(and stop matching the old description), then deletes it and waits for it to disappear. Every step
+crosses the product outbox, `product.events.v1` and the search consumer asynchronously. It needs
+product, search and the gateway on the Kafka overlay; the gateway is started without its other
+dependencies to fit the ~4 GB Docker VM:
+
+```
+docker compose -f tests/end-to-end/compose.yml -f infrastructure/kafka/compose.kafka.yml \
+  up -d kafka product search
+docker compose -f tests/end-to-end/compose.yml -f infrastructure/kafka/compose.kafka.yml \
+  up -d --no-deps api-gateway
+
+mvn -pl tests/end-to-end test -De2e.kafka=true -De2e.search=true
+```
+
+Deduplication, stale-version handling, dead-lettering and bounded retry for the search consumer are
+covered by search-service's own integration tests.

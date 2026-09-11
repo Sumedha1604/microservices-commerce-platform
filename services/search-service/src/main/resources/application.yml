@@ -1,0 +1,62 @@
+spring:
+  application:
+    name: search-service
+  datasource:
+    url: ${SEARCH_DB_URL:jdbc:postgresql://localhost:5432/search_db}
+    username: ${SEARCH_DB_USERNAME:search_user}
+    password: ${SEARCH_DB_PASSWORD:change-me}
+  flyway:
+    enabled: true
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:29092}
+    consumer:
+      group-id: search-service
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      # A new group reads every product event still retained on the topic. That is the whole
+      # bootstrap story: see docs/events/product-events.md#bootstrap-and-backfill.
+      auto-offset-reset: earliest
+      enable-auto-commit: false
+    listener:
+      # Offsets advance only after the handler (and its DB transaction) succeeds.
+      ack-mode: RECORD
+      # Matches the 3 partitions of product.events.v1; never exceed the partition count.
+      concurrency: 3
+      # Consumer spans continuing the producer's W3C traceparent.
+      observation-enabled: true
+    producer:
+      # Only used for dead-letter republishing; search-service publishes no events.
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+      acks: all
+      properties:
+        max.block.ms: 5000
+        request.timeout.ms: 5000
+        delivery.timeout.ms: 10000
+server:
+  port: ${SEARCH_SERVER_PORT:8090}
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,prometheus
+  metrics:
+    tags:
+      application: search-service
+  endpoint:
+    health:
+      show-details: never
+  tracing:
+    sampling:
+      probability: 1.0
+    propagation:
+      type: w3c
+  opentelemetry:
+    tracing:
+      export:
+        otlp:
+          endpoint: ${OTEL_EXPORTER_OTLP_TRACES_ENDPOINT:http://tempo:4318/v1/traces}
+
+logging:
+  pattern:
+    correlation: "[traceId=%X{traceId:-} spanId=%X{spanId:-}]"

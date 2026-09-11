@@ -17,6 +17,12 @@ public final class EventTypes {
     /** {@link com.sumedha.commerce.common.events.inventory.InventoryReleaseRequestedEvent} payload. */
     public static final String INVENTORY_RELEASE_REQUESTED = "InventoryReleaseRequested";
 
+    /** {@link com.sumedha.commerce.common.events.product.ProductUpsertedEvent} payload. */
+    public static final String PRODUCT_UPSERTED = "ProductUpserted";
+
+    /** {@link com.sumedha.commerce.common.events.product.ProductDeletedEvent} payload. */
+    public static final String PRODUCT_DELETED = "ProductDeleted";
+
     private EventTypes() {
         throw new UnsupportedOperationException("Constants class");
     }

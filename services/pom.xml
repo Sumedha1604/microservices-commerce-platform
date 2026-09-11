@@ -33,5 +33,6 @@
         <module>payment-service</module>
         <module>checkout-service</module>
         <module>notification-service</module>
+        <module>search-service</module>
     </modules>
 </project>

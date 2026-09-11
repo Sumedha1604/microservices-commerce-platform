@@ -52,7 +52,13 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-@SpringBootTest
+@SpringBootTest(properties = {
+        // This test is about the catalogue schema, not messaging: no topic creation, no broker, no publisher.
+        "spring.kafka.admin.auto-create=false",
+        "spring.kafka.bootstrap-servers=localhost:59995",
+        "product.outbox.enabled=false",
+        "management.opentelemetry.tracing.export.otlp.endpoint=http://localhost:59999/v1/traces"
+})
 @Testcontainers
 class ProductPostgresIntegrationTest {
 
@@ -84,6 +90,7 @@ class ProductPostgresIntegrationTest {
 
     @BeforeEach
     void clearDatabase() {
+        jdbc.update("delete from product_outbox_event");
         images.deleteAll();
         attributes.deleteAll();
         products.deleteAll();

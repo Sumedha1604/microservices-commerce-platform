@@ -68,4 +68,6 @@ Integration coverage (`ProductPostgresIntegrationTest`) uses Testcontainers to r
 
 - Service port: `8083`.
 - `/actuator/health` is exposed for orchestration; other actuator endpoints are not.
-- Planned but not implemented: Kafka events, inventory, and order integration.
+- Product lifecycle events: every create, effective update, and delete writes a `ProductUpserted`/`ProductDeleted` row to `product_outbox_event` in the same transaction; a scheduled publisher sends it to `product.events.v1` (keyed by `productId`) and marks it `PUBLISHED` after the broker acknowledges. `products.version` (optimistic locking) is carried in the events so consumers can reject stale states; concurrent updates return `409 CONFLICT`. Without a broker, rows stay `PENDING` and product writes are unaffected. See [../../docs/events/product-events.md](../../docs/events/product-events.md).
+- Outbox configuration: `PRODUCT_OUTBOX_ENABLED` (default `true`), `PRODUCT_OUTBOX_POLL_INTERVAL` (`1s`), `PRODUCT_OUTBOX_BATCH_SIZE` (`20`), `PRODUCT_OUTBOX_SEND_TIMEOUT` (`15s`), `PRODUCT_OUTBOX_INITIAL_BACKOFF` (`1s`), `PRODUCT_OUTBOX_MAX_BACKOFF` (`5m`), `KAFKA_BOOTSTRAP_SERVERS` (`localhost:29092`).
+- Planned but not implemented: inventory and order integration.

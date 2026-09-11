@@ -26,6 +26,9 @@ class ContractConstantsTest {
         assertEquals("order.compensation.v1", KafkaTopics.ORDER_COMPENSATION_V1);
         assertEquals("order.compensation.v1.DLT", KafkaTopics.ORDER_COMPENSATION_V1_DLT);
         assertTrue(KafkaTopics.ORDER_COMPENSATION_V1_DLT.startsWith(KafkaTopics.ORDER_COMPENSATION_V1));
+        assertEquals("product.events.v1", KafkaTopics.PRODUCT_EVENTS_V1);
+        assertEquals("product.events.v1.search.DLT", KafkaTopics.PRODUCT_EVENTS_V1_SEARCH_DLT);
+        assertTrue(KafkaTopics.PRODUCT_EVENTS_V1_SEARCH_DLT.startsWith(KafkaTopics.PRODUCT_EVENTS_V1));
     }
 
     @Test
@@ -33,6 +36,8 @@ class ContractConstantsTest {
         assertEquals("PaymentAuthorized", EventTypes.PAYMENT_AUTHORIZED);
         assertEquals("PaymentFailed", EventTypes.PAYMENT_FAILED);
         assertEquals("InventoryReleaseRequested", EventTypes.INVENTORY_RELEASE_REQUESTED);
+        assertEquals("ProductUpserted", EventTypes.PRODUCT_UPSERTED);
+        assertEquals("ProductDeleted", EventTypes.PRODUCT_DELETED);
     }
 
     @Test

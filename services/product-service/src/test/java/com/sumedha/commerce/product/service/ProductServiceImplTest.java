@@ -18,6 +18,11 @@ import com.sumedha.commerce.product.repository.CategoryRepository;
 import com.sumedha.commerce.product.repository.ProductAttributeRepository;
 import com.sumedha.commerce.product.repository.ProductImageRepository;
 import com.sumedha.commerce.product.repository.ProductRepository;
+import com.sumedha.commerce.product.repository.ProductOutboxEventRepository;
+import com.sumedha.commerce.product.entity.ProductOutboxEvent;
+import com.sumedha.commerce.product.messaging.ProductOutboxEventFactory;
+import org.mockito.invocation.InvocationOnMock;
+import org.springframework.test.util.ReflectionTestUtils;
 import com.sumedha.commerce.common.core.exception.BadRequestException;
 import com.sumedha.commerce.common.core.exception.ConflictException;
 import com.sumedha.commerce.common.core.exception.ResourceNotFoundException;
@@ -49,6 +54,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -67,12 +73,15 @@ class ProductServiceImplTest {
     ProductImageRepository images;
     @Mock
     ProductAttributeRepository attributes;
+    @Mock
+    ProductOutboxEventRepository outboxEvents;
 
     ProductServiceImpl service;
 
     @BeforeEach
     void setUp() {
-        service = new ProductServiceImpl(products, categories, brands, images, attributes);
+        service = new ProductServiceImpl(products, categories, brands, images, attributes,
+                outboxEvents, new ProductOutboxEventFactory());
     }
 
     private Category sampleCategory() {
@@ -84,8 +93,18 @@ class ProductServiceImplTest {
     }
 
     private Product sampleProduct(Category category, Brand brand) {
-        return new Product("SKU-1", "Product One", "product-1", category.getId(),
+        Product product = new Product("SKU-1", "Product One", "product-1", category.getId(),
                 brand == null ? null : brand.getId(), BigDecimal.valueOf(19.99), "USD");
+        // As loaded from the database: Hibernate has already assigned the optimistic-lock version.
+        ReflectionTestUtils.setField(product, "version", 0L);
+        return product;
+    }
+
+    /** Simulates saveAndFlush: the insert assigns the initial version. */
+    private static Product flushed(InvocationOnMock invocation) {
+        Product product = invocation.getArgument(0);
+        ReflectionTestUtils.setField(product, "version", 0L);
+        return product;
     }
 
     private ProductFilter emptyFilter() {
@@ -104,7 +123,7 @@ class ProductServiceImplTest {
         when(products.existsBySku("SKU-1")).thenReturn(false);
         when(products.existsBySlug("product-1")).thenReturn(false);
         when(categories.findById(category.getId())).thenReturn(Optional.of(category));
-        when(products.save(any(Product.class))).thenAnswer(i -> i.getArgument(0));
+        when(products.saveAndFlush(any(Product.class))).thenAnswer(ProductServiceImplTest::flushed);
 
         CreateProductRequest request = new CreateProductRequest("SKU-1", "Product One", "product-1",
                 category.getId(), null, BigDecimal.valueOf(19.99), "USD");
@@ -125,7 +144,7 @@ class ProductServiceImplTest {
         when(products.existsBySlug("product-1")).thenReturn(false);
         when(categories.findById(category.getId())).thenReturn(Optional.of(category));
         when(brands.findById(brand.getId())).thenReturn(Optional.of(brand));
-        when(products.save(any(Product.class))).thenAnswer(i -> i.getArgument(0));
+        when(products.saveAndFlush(any(Product.class))).thenAnswer(ProductServiceImplTest::flushed);
 
         CreateProductRequest request = new CreateProductRequest("SKU-1", "Product One", "product-1",
                 category.getId(), brand.getId(), BigDecimal.valueOf(19.99), "USD");
@@ -141,7 +160,7 @@ class ProductServiceImplTest {
         CreateProductRequest request = new CreateProductRequest("SKU-1", "Product One", "product-1",
                 UUID.randomUUID(), null, BigDecimal.TEN, "USD");
         assertThrows(ConflictException.class, () -> service.create(request));
-        verify(products, never()).save(any());
+        verify(products, never()).saveAndFlush(any());
     }
 
     @Test
@@ -152,7 +171,7 @@ class ProductServiceImplTest {
         CreateProductRequest request = new CreateProductRequest("SKU-1", "Product One", "product-1",
                 UUID.randomUUID(), null, BigDecimal.TEN, "USD");
         assertThrows(ConflictException.class, () -> service.create(request));
-        verify(products, never()).save(any());
+        verify(products, never()).saveAndFlush(any());
     }
 
     @Test
@@ -165,7 +184,7 @@ class ProductServiceImplTest {
         CreateProductRequest request = new CreateProductRequest("SKU-1", "Product One", "product-1",
                 categoryId, null, BigDecimal.TEN, "USD");
         assertThrows(ResourceNotFoundException.class, () -> service.create(request));
-        verify(products, never()).save(any());
+        verify(products, never()).saveAndFlush(any());
     }
 
     @Test
@@ -180,7 +199,7 @@ class ProductServiceImplTest {
         CreateProductRequest request = new CreateProductRequest("SKU-1", "Product One", "product-1",
                 category.getId(), brandId, BigDecimal.TEN, "USD");
         assertThrows(ResourceNotFoundException.class, () -> service.create(request));
-        verify(products, never()).save(any());
+        verify(products, never()).saveAndFlush(any());
     }
 
     // --- get / getBySlug ---
@@ -288,7 +307,7 @@ class ProductServiceImplTest {
         when(products.existsBySku("SKU-1")).thenReturn(false);
         when(products.existsBySlug("product-1")).thenReturn(false);
         when(categories.findById(category.getId())).thenReturn(Optional.of(category));
-        when(products.save(any(Product.class))).thenAnswer(i -> i.getArgument(0));
+        when(products.saveAndFlush(any(Product.class))).thenAnswer(ProductServiceImplTest::flushed);
         when(images.findByProductIdOrderBySortOrderAsc(any())).thenReturn(List.of());
         when(attributes.findByProductId(any())).thenReturn(List.of());
 
@@ -448,6 +467,101 @@ class ProductServiceImplTest {
 
         assertThrows(ConflictException.class, () -> service.delete(product.getId()));
         verify(products, never()).delete(any(Product.class));
+    }
+
+    // --- outbox ---
+
+    @Test
+    void createWritesOneProductUpsertedOutboxRowKeyedByProductId() {
+        Category category = sampleCategory();
+        when(products.existsBySku("SKU-1")).thenReturn(false);
+        when(products.existsBySlug("product-1")).thenReturn(false);
+        when(categories.findById(category.getId())).thenReturn(Optional.of(category));
+        when(products.saveAndFlush(any(Product.class))).thenAnswer(ProductServiceImplTest::flushed);
+
+        ProductResponse response = service.create(new CreateProductRequest("SKU-1", "Product One", "product-1",
+                category.getId(), null, BigDecimal.valueOf(19.99), "USD"));
+
+        ArgumentCaptor<ProductOutboxEvent> row = ArgumentCaptor.forClass(ProductOutboxEvent.class);
+        verify(outboxEvents).saveAndFlush(row.capture());
+        assertEquals("ProductUpserted", row.getValue().getEventType());
+        assertEquals("product.events.v1", row.getValue().getTopic());
+        assertEquals(response.productId().toString(), row.getValue().getEventKey());
+        assertEquals(response.productId(), row.getValue().getAggregateId());
+        assertTrue(row.getValue().getPayload().contains("\"version\":0"));
+    }
+
+    @Test
+    void aRejectedCreateWritesNoOutboxRow() {
+        when(products.existsBySku("SKU-1")).thenReturn(true);
+
+        assertThrows(ConflictException.class, () -> service.create(new CreateProductRequest("SKU-1", "Product One",
+                "product-1", UUID.randomUUID(), null, BigDecimal.TEN, "USD")));
+        verifyNoInteractions(outboxEvents);
+    }
+
+    @Test
+    void anUpdateThatBumpsTheVersionWritesAProductUpsertedRow() {
+        Category category = sampleCategory();
+        Product product = sampleProduct(category, null);
+        when(products.findById(product.getId())).thenReturn(Optional.of(product));
+        when(categories.findById(category.getId())).thenReturn(Optional.of(category));
+        doAnswer(invocation -> {
+            ReflectionTestUtils.setField(product, "version", 1L);
+            return null;
+        }).when(products).flush();
+
+        service.update(product.getId(), new UpdateProductRequest("Renamed", "product-1", null, "new description",
+                category.getId(), null, BigDecimal.TEN, "USD", ProductStatus.ACTIVE, true));
+
+        ArgumentCaptor<ProductOutboxEvent> row = ArgumentCaptor.forClass(ProductOutboxEvent.class);
+        verify(outboxEvents).saveAndFlush(row.capture());
+        assertEquals("ProductUpserted", row.getValue().getEventType());
+        assertTrue(row.getValue().getPayload().contains("\"name\":\"Renamed\""));
+        assertTrue(row.getValue().getPayload().contains("\"version\":1"));
+    }
+
+    @Test
+    void anUpdateThatChangesNothingInTheDatabaseWritesNoOutboxRow() {
+        Category category = sampleCategory();
+        Product product = sampleProduct(category, null);
+        when(products.findById(product.getId())).thenReturn(Optional.of(product));
+        when(categories.findById(category.getId())).thenReturn(Optional.of(category));
+
+        service.update(product.getId(), new UpdateProductRequest("Product One", "product-1", null, null,
+                category.getId(), null, BigDecimal.valueOf(19.99), "USD", ProductStatus.DRAFT, true));
+
+        verify(products).flush();
+        verifyNoInteractions(outboxEvents);
+    }
+
+    @Test
+    void deleteWritesAProductDeletedRowOrderedAfterTheLastVersion() {
+        Category category = sampleCategory();
+        Product product = sampleProduct(category, null);
+        when(products.findById(product.getId())).thenReturn(Optional.of(product));
+        when(images.existsByProductId(product.getId())).thenReturn(false);
+        when(attributes.existsByProductId(product.getId())).thenReturn(false);
+
+        service.delete(product.getId());
+
+        ArgumentCaptor<ProductOutboxEvent> row = ArgumentCaptor.forClass(ProductOutboxEvent.class);
+        verify(outboxEvents).saveAndFlush(row.capture());
+        assertEquals("ProductDeleted", row.getValue().getEventType());
+        assertTrue(row.getValue().getPayload().contains("\"version\":1"));
+        verify(products).delete(product);
+        verify(products).flush();
+    }
+
+    @Test
+    void aBlockedDeleteWritesNoOutboxRow() {
+        Category category = sampleCategory();
+        Product product = sampleProduct(category, null);
+        when(products.findById(product.getId())).thenReturn(Optional.of(product));
+        when(images.existsByProductId(product.getId())).thenReturn(true);
+
+        assertThrows(ConflictException.class, () -> service.delete(product.getId()));
+        verifyNoInteractions(outboxEvents);
     }
 
     // --- search ---

@@ -54,6 +54,11 @@ class ServiceHealthE2ETest extends E2ETestBase {
         assertHealthUp("notification", serviceUrls.notification());
     }
 
+    @Test
+    void searchHealthIsUp() {
+        assertHealthUp("search", serviceUrls.search());
+    }
+
     private void assertHealthUp(String serviceName, String baseUrl) {
         HttpRequest request = HttpRequest.newBuilder(healthUri(baseUrl))
                 .GET()
