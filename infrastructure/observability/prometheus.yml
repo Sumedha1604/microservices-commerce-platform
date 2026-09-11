@@ -16,3 +16,4 @@ scrape_configs:
           - payment:8087
           - checkout:8088
           - notification:8089
+          - search:8090

@@ -4,9 +4,9 @@
 
 Prometheus is the metrics backend for local development.
 
-- All 10 services expose `/actuator/health` and `/actuator/prometheus` (Micrometer + `micrometer-registry-prometheus`).
+- All 11 services expose `/actuator/health` and `/actuator/prometheus` (Micrometer + `micrometer-registry-prometheus`).
 - Each service tags its metrics with a stable `application` label (e.g. `application=order-service`), so series can be filtered/grouped per service.
-- Prometheus config: [`infrastructure/observability/prometheus.yml`](../../infrastructure/observability/prometheus.yml) — scrapes all 10 services on their container DNS names/ports every 15s.
+- Prometheus config: [`infrastructure/observability/prometheus.yml`](../../infrastructure/observability/prometheus.yml) — scrapes all 11 services on their container DNS names/ports every 15s.
 - Prometheus Compose overlay: [`infrastructure/observability/compose.prometheus.yml`](../../infrastructure/observability/compose.prometheus.yml) — runs Prometheus on port 9090.
 
 ### Running it
@@ -21,7 +21,7 @@ Prometheus UI: http://localhost:9090
 
 `api-gateway` (8080), `auth-service` (8081), `user-service` (8082), `product-service` (8083),
 `inventory-service` (8084), `cart-service` (8085), `order-service` (8086), `payment-service` (8087),
-`checkout-service` (8088), `notification-service` (8089).
+`checkout-service` (8088), `notification-service` (8089), `search-service` (8090).
 
 ### Example queries
 
@@ -47,7 +47,7 @@ docker compose \
 - Loki: http://localhost:3100
 - Prometheus: http://localhost:9090
 
-In Grafana Explore, select **Loki** and query `{service="order"}`. The `service` label is the Docker Compose service name; all application services can be queried the same way (for example, `api-gateway`, `auth`, `user`, `product`, `inventory`, `cart`, `order`, `payment`, `checkout`, and `notification`). The `container_name` and `stream` labels are also available.
+In Grafana Explore, select **Loki** and query `{service="order"}`. The `service` label is the Docker Compose service name; all application services can be queried the same way (for example, `api-gateway`, `auth`, `user`, `product`, `inventory`, `cart`, `order`, `payment`, `checkout`, `notification`, and `search`). The `container_name` and `stream` labels are also available.
 
 ## Tracing across Kafka (implemented)
 
@@ -175,6 +175,37 @@ notification-service  CONSUMER     payment.events.v1 process
 
 The dead-letter template has observation disabled, so a dead-lettered record keeps its original
 `traceparent`. See [../events/notification-events.md](../events/notification-events.md).
+
+## Product search (implemented)
+
+product-service publishes `ProductUpserted`/`ProductDeleted` to `product.events.v1` through its
+transactional outbox; search-service consumes them (group `search-service`) into a PostgreSQL search
+read model.
+
+| Metric | Meaning |
+| --- | --- |
+| `search_events_received_total` | Product events delivered to the listener (each attempt) |
+| `search_projection_upserted_total` | Upserts applied to the read model |
+| `search_projection_deleted_total` | Products removed from search |
+| `search_projection_stale_ignored_total` | Older product versions ignored by the version guard |
+| `search_duplicate_ignored_total` | Duplicate `eventId`s ignored |
+| `search_indexing_failed_total` | Failed processing attempts (retried or dead-lettered) |
+| `search_queries_total{outcome="success"\|"rejected"}` | Search requests |
+| `search_query_duration_seconds_{count,sum,max}` | Query execution time |
+
+Cardinality is fixed: `outcome` is the only tag. Logs carry `eventId`, `productId`, `eventType`,
+`version` and query timing (`durationMs`), never payloads or query text. A rising
+`search_indexing_failed_total` means catalogue changes are not reaching search.
+
+Tracing breaks at the product outbox (the publisher starts a new trace, like payment and order), and
+the search listener continues the producer's `traceparent`:
+
+```
+product-service  PRODUCER  product.events.v1 send
+search-service   CONSUMER    product.events.v1 process
+```
+
+See [../events/product-events.md](../events/product-events.md).
 
 ## Not yet implemented
 

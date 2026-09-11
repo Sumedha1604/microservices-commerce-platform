@@ -10,3 +10,7 @@ Base paths: `/api/v1/products`, `/api/v1/categories`, `/api/v1/brands`.
 - `POST /products/{productId}/attributes` — 201; `GET /products/{productId}/attributes` — 200; `DELETE /products/{productId}/attributes/{attributeId}` — 204
 
 Responses use the shared `ApiResponse`; validation errors use `ErrorResponse`. Health is at `/actuator/health`; development OpenAPI is at `/swagger-ui/index.html`.
+
+Concurrent modification of the same product (optimistic locking) returns `409 CONFLICT` with "Product was modified concurrently. Please retry."
+
+Create, effective update, and delete publish `ProductUpserted`/`ProductDeleted` asynchronously through the transactional outbox (see [../events/product-events.md](../events/product-events.md)). For relevance-ranked full-text search use search-service's `GET /api/v1/search/products` ([search-service.md](search-service.md)); `GET /products?search=` remains a simple name filter.

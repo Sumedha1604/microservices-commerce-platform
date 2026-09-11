@@ -39,6 +39,19 @@ public final class KafkaTopics {
      */
     public static final String ORDER_COMPENSATION_V1_DLT = "order.compensation.v1.DLT";
 
+    /**
+     * Product catalogue lifecycle events published by product-service through its transactional
+     * outbox (ProductUpserted, ProductDeleted). Partition key: productId, so every change to one
+     * product stays ordered.
+     */
+    public static final String PRODUCT_EVENTS_V1 = "product.events.v1";
+
+    /**
+     * search-service's own dead-letter topic for {@link #PRODUCT_EVENTS_V1}, named
+     * {@code <source>.<consumer>.DLT} like {@link #PAYMENT_EVENTS_V1_NOTIFICATION_DLT}.
+     */
+    public static final String PRODUCT_EVENTS_V1_SEARCH_DLT = "product.events.v1.search.DLT";
+
     private KafkaTopics() {
         throw new UnsupportedOperationException("Constants class");
     }
