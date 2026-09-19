@@ -4,9 +4,9 @@
 
 Prometheus is the metrics backend for local development.
 
-- All 11 services expose `/actuator/health` and `/actuator/prometheus` (Micrometer + `micrometer-registry-prometheus`).
+- All 12 services expose `/actuator/health` and `/actuator/prometheus` (Micrometer + `micrometer-registry-prometheus`).
 - Each service tags its metrics with a stable `application` label (e.g. `application=order-service`), so series can be filtered/grouped per service.
-- Prometheus config: [`infrastructure/observability/prometheus.yml`](../../infrastructure/observability/prometheus.yml) — scrapes all 11 services on their container DNS names/ports every 15s.
+- Prometheus config: [`infrastructure/observability/prometheus.yml`](../../infrastructure/observability/prometheus.yml) — scrapes all 12 services on their container DNS names/ports every 15s.
 - Prometheus Compose overlay: [`infrastructure/observability/compose.prometheus.yml`](../../infrastructure/observability/compose.prometheus.yml) — runs Prometheus on port 9090.
 
 ### Running it
@@ -21,7 +21,7 @@ Prometheus UI: http://localhost:9090
 
 `api-gateway` (8080), `auth-service` (8081), `user-service` (8082), `product-service` (8083),
 `inventory-service` (8084), `cart-service` (8085), `order-service` (8086), `payment-service` (8087),
-`checkout-service` (8088), `notification-service` (8089), `search-service` (8090).
+`checkout-service` (8088), `notification-service` (8089), `search-service` (8090), `recommendation-service` (8091).
 
 ### Example queries
 
@@ -47,7 +47,7 @@ docker compose \
 - Loki: http://localhost:3100
 - Prometheus: http://localhost:9090
 
-In Grafana Explore, select **Loki** and query `{service="order"}`. The `service` label is the Docker Compose service name; all application services can be queried the same way (for example, `api-gateway`, `auth`, `user`, `product`, `inventory`, `cart`, `order`, `payment`, `checkout`, `notification`, and `search`). The `container_name` and `stream` labels are also available.
+In Grafana Explore, select **Loki** and query `{service="order"}`. The `service` label is the Docker Compose service name; all application services can be queried the same way (for example, `api-gateway`, `auth`, `user`, `product`, `inventory`, `cart`, `order`, `payment`, `checkout`, `notification`, `search`, and `recommendation`). The `container_name` and `stream` labels are also available.
 
 ## Tracing across Kafka (implemented)
 
@@ -206,6 +206,35 @@ search-service   CONSUMER    product.events.v1 process
 ```
 
 See [../events/product-events.md](../events/product-events.md).
+
+## Product recommendations (implemented)
+
+recommendation-service consumes `product.events.v1` (group `recommendation-service`) into its own
+catalogue projection and serves deterministic related-product recommendations.
+
+| Metric | Meaning |
+| --- | --- |
+| `recommendation_events_received_total` | Product events delivered to the listener (each attempt) |
+| `recommendation_projection_upserted_total` | Upserts applied to the projection |
+| `recommendation_projection_deleted_total` | Products tombstoned |
+| `recommendation_duplicate_ignored_total` | Duplicate `eventId`s ignored |
+| `recommendation_stale_ignored_total` | Older product versions ignored by the version guard |
+| `recommendation_failed_total` | Failed processing attempts (retried or dead-lettered) |
+| `recommendation_requests_total{outcome="success"\|"not_found"\|"rejected"}` | Related-product requests |
+| `recommendation_request_duration_seconds_{count,sum,max}` | Time to compute recommendations |
+
+Cardinality is fixed: `outcome` is the only tag. Logs carry `eventId`, `productId`, `eventType` and
+`version` for events, and `sourceProductId`, `limit`, result count and `durationMs` for requests;
+payloads are never logged. The consumer continues the product producer's `traceparent`, alongside
+search-service's consumer span for the same record:
+
+```
+product-service         PRODUCER  product.events.v1 send
+search-service          CONSUMER    product.events.v1 process
+recommendation-service  CONSUMER    product.events.v1 process
+```
+
+See [../decisions/0007-product-recommendations.md](../decisions/0007-product-recommendations.md).
 
 ## Not yet implemented
 

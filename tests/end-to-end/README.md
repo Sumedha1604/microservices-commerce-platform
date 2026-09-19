@@ -75,3 +75,25 @@ mvn -pl tests/end-to-end test -De2e.kafka=true -De2e.search=true
 
 Deduplication, stale-version handling, dead-lettering and bounded retry for the search consumer are
 covered by search-service's own integration tests.
+
+## Product recommendation test (opt-in)
+
+`ProductRecommendationE2ETest` creates two categories, a brand and five products through
+product-service and activates them. It then polls related products for the source **through the API
+gateway** until they arrive in the documented deterministic order: same category + brand + similar
+price (8), same category (5), same brand + similar price (3). The source and the unrelated product
+are never included. It then deactivates the best candidate and deletes the next, waiting each time
+for the list to change accordingly. Every step is asynchronous (product outbox, `product.events.v1`,
+recommendation consumer), so all assertions poll with a bounded timeout.
+
+```
+docker compose -f tests/end-to-end/compose.yml -f infrastructure/kafka/compose.kafka.yml \
+  up -d kafka product recommendation
+docker compose -f tests/end-to-end/compose.yml -f infrastructure/kafka/compose.kafka.yml \
+  up -d --no-deps api-gateway
+
+mvn -pl tests/end-to-end test -De2e.kafka=true -De2e.recommendation=true
+```
+
+Deduplication, stale versions, dead-lettering and bounded retry for the recommendation consumer are
+covered by recommendation-service's own integration tests.

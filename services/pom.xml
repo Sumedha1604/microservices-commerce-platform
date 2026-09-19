@@ -34,5 +34,6 @@
         <module>checkout-service</module>
         <module>notification-service</module>
         <module>search-service</module>
+        <module>recommendation-service</module>
     </modules>
 </project>

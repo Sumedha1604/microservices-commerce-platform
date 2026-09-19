@@ -19,5 +19,6 @@ class ServiceUrlsTest {
         assertEquals("http://localhost:8089", urls.notification());
         assertEquals("http://localhost:8090", urls.search());
         assertEquals("http://localhost:8080", urls.gateway());
+        assertEquals("http://localhost:8091", urls.recommendation());
     }
 }
