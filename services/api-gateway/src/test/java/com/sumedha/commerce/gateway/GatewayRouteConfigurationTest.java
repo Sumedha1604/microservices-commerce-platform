@@ -22,7 +22,7 @@ class GatewayRouteConfigurationTest {
                         route -> route.getPredicates().getFirst().getArgs().get("_genkey_0"),
                         route -> route.getUri().toString()));
 
-        assertEquals(12, routes.size());
+        assertEquals(13, routes.size());
         assertEquals("http://localhost:8081", routes.get("/api/v1/auth/**"));
         assertEquals("http://localhost:8082", routes.get("/api/v1/users/**"));
         assertEquals("http://localhost:8083", routes.get("/api/v1/products/**"));
@@ -35,5 +35,6 @@ class GatewayRouteConfigurationTest {
         assertEquals("http://localhost:8088", routes.get("/api/v1/checkouts/**"));
         assertEquals("http://localhost:8089", routes.get("/api/v1/notifications/**"));
         assertEquals("http://localhost:8090", routes.get("/api/v1/search/**"));
+        assertEquals("http://localhost:8091", routes.get("/api/v1/recommendations/**"));
     }
 }

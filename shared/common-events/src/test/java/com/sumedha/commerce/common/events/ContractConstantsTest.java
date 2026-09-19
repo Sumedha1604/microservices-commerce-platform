@@ -29,6 +29,9 @@ class ContractConstantsTest {
         assertEquals("product.events.v1", KafkaTopics.PRODUCT_EVENTS_V1);
         assertEquals("product.events.v1.search.DLT", KafkaTopics.PRODUCT_EVENTS_V1_SEARCH_DLT);
         assertTrue(KafkaTopics.PRODUCT_EVENTS_V1_SEARCH_DLT.startsWith(KafkaTopics.PRODUCT_EVENTS_V1));
+        assertEquals("product.events.v1.recommendation.DLT", KafkaTopics.PRODUCT_EVENTS_V1_RECOMMENDATION_DLT);
+        assertTrue(!KafkaTopics.PRODUCT_EVENTS_V1_RECOMMENDATION_DLT.equals(KafkaTopics.PRODUCT_EVENTS_V1_SEARCH_DLT),
+                "each consumer of product.events.v1 owns a distinct dead-letter topic");
     }
 
     @Test

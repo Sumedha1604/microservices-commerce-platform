@@ -54,6 +54,10 @@ spring:
               uri: ${gateway.services.search-url}
               predicates:
                 - Path=/api/v1/search/**
+            - id: recommendation-service
+              uri: ${gateway.services.recommendation-url}
+              predicates:
+                - Path=/api/v1/recommendations/**
 
 server:
   port: ${GATEWAY_SERVER_PORT:8080}
@@ -70,6 +74,7 @@ gateway:
     checkout-url: ${CHECKOUT_SERVICE_URL:http://localhost:8088}
     notification-url: ${NOTIFICATION_SERVICE_URL:http://localhost:8089}
     search-url: ${SEARCH_SERVICE_URL:http://localhost:8090}
+    recommendation-url: ${RECOMMENDATION_SERVICE_URL:http://localhost:8091}
 
 management:
   endpoints:

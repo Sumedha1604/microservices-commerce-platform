@@ -52,6 +52,12 @@ public final class KafkaTopics {
      */
     public static final String PRODUCT_EVENTS_V1_SEARCH_DLT = "product.events.v1.search.DLT";
 
+    /**
+     * recommendation-service's own dead-letter topic for {@link #PRODUCT_EVENTS_V1}. A second
+     * consumer of the same stream gets its own, so one consumer's rejects never mix with the other's.
+     */
+    public static final String PRODUCT_EVENTS_V1_RECOMMENDATION_DLT = "product.events.v1.recommendation.DLT";
+
     private KafkaTopics() {
         throw new UnsupportedOperationException("Constants class");
     }

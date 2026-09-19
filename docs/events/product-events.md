@@ -23,6 +23,12 @@ search-service, one transaction:
 GET /api/v1/search/products  (PostgreSQL full-text + trigram)
 ```
 
+**Consumers.** `product.events.v1` has two independent consumer groups with their own offsets, read
+models and dead-letter topics: `search-service` (this document) and `recommendation-service`
+(`product.events.v1.recommendation.DLT`, related-product recommendations, see
+[../decisions/0007-product-recommendations.md](../decisions/0007-product-recommendations.md)). Both
+apply the same `processed_event` claim, version guard and tombstone rules described below.
+
 ## Topics
 
 | | |
@@ -31,8 +37,8 @@ GET /api/v1/search/products  (PostgreSQL full-text + trigram)
 | Key | `productId` (UTF-8) |
 | Partitions / RF | 3 / 1 (local development) |
 | Serialization | `StringSerializer`; value is the JSON envelope, no type headers |
-| Consumer group | `search-service` |
-| Dead-letter topic | `product.events.v1.search.DLT`, declared by search-service |
+| Consumer groups | `search-service`; `recommendation-service` |
+| Dead-letter topics | `product.events.v1.search.DLT` (search-service); `product.events.v1.recommendation.DLT` (recommendation-service) |
 
 ## Contract (schema version 1)
 
@@ -162,8 +168,8 @@ docker exec end-to-end-kafka-1 /opt/kafka/bin/kafka-console-consumer.sh \
   --from-beginning --property print.key=true --property print.headers=true
 ```
 
-Replaying a record onto `product.events.v1` is safe (both guards apply). search-service is the only
-consumer of that topic.
+Replaying a record onto `product.events.v1` is safe: it reaches both search-service and
+recommendation-service, and both apply the same two guards.
 
 ## Bootstrap and backfill
 

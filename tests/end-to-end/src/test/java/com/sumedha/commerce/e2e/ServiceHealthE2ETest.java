@@ -59,6 +59,11 @@ class ServiceHealthE2ETest extends E2ETestBase {
         assertHealthUp("search", serviceUrls.search());
     }
 
+    @Test
+    void recommendationHealthIsUp() {
+        assertHealthUp("recommendation", serviceUrls.recommendation());
+    }
+
     private void assertHealthUp(String serviceName, String baseUrl) {
         HttpRequest request = HttpRequest.newBuilder(healthUri(baseUrl))
                 .GET()

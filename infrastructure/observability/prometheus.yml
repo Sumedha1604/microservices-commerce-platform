@@ -17,3 +17,4 @@ scrape_configs:
           - checkout:8088
           - notification:8089
           - search:8090
+          - recommendation:8091
