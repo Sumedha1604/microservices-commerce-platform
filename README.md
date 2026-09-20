@@ -30,6 +30,25 @@ mutations are never automatically retried. Sanitized 502/503/504 failures and Pr
 metrics are provided without changing Kafka/outbox/DLT/Saga behavior. See
 [the resilience architecture](docs/architecture/resilience.md) and [ADR 0008](docs/decisions/0008-gateway-security-and-http-resilience.md).
 
+## Kubernetes and CI/CD
+
+The platform has a Kustomize deployment baseline for Docker Desktop Kubernetes. It deploys all 12
+applications into the `commerce` namespace, keeps downstream services private as `ClusterIP`
+Services, and exposes only API Gateway through a local `LoadBalancer`. The local overlay includes a
+single development PostgreSQL instance with ten isolated databases/users, single-node KRaft Kafka,
+and a small Prometheus deployment. Build the local images and deploy with:
+
+```bash
+./infrastructure/scripts/build-kubernetes-images.sh
+kubectl apply -k infrastructure/kubernetes/overlays/local
+kubectl get pods -n commerce
+```
+
+See [the Kubernetes deployment guide](docs/deployment/kubernetes.md),
+[GitHub Actions guide](docs/ci/github-actions.md), and
+[ADR 0009](docs/decisions/0009-kubernetes-and-ci.md). The manifests are a local/development
+foundation, not a production-ready cloud platform.
+
 ## Planned Architecture
 
 The platform will follow these architectural principles:

@@ -1,0 +1,25 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: commerce
+resources:
+  - ../../base
+patches:
+  - path: gateway-load-balancer.yaml
+secretGenerator:
+  - name: commerce-secrets
+    literals:
+      - AUTH_JWT_SECRET=local-only-jwt-secret-change-before-sharing-123456
+      - POSTGRES_ADMIN_PASSWORD=local_admin_password
+      - AUTH_DB_PASSWORD=auth_password
+      - USER_DB_PASSWORD=user_password
+      - PRODUCT_DB_PASSWORD=product_password
+      - INVENTORY_DB_PASSWORD=inventory_password
+      - CART_DB_PASSWORD=cart_password
+      - ORDER_DB_PASSWORD=order_password
+      - PAYMENT_DB_PASSWORD=payment_password
+      - NOTIFICATION_DB_PASSWORD=notification_password
+      - SEARCH_DB_PASSWORD=search_password
+      - RECOMMENDATION_DB_PASSWORD=recommendation_password
+generatorOptions:
+  disableNameSuffixHash: true
+
