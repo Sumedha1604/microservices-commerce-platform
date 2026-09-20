@@ -209,10 +209,10 @@ with `messaging_kafka_consumer_group="notification-service"`.
 
 ## Security
 
-`/api/v1/notifications/**` is **not authorization-protected**, like every other service API on the
-platform today (auth-service issues tokens, but nothing validates them). The records name users and
-describe their payments, so reads must be scoped to the caller's own `userId` (or restricted to
-operators) before production.
+The API Gateway requires authentication for `/api/v1/notifications/**`, but Notification Service does
+not validate tokens itself and opaque notification/order identifiers are not ownership-checked. The
+records name users and describe payment outcomes, so service-level per-user scoping (or an
+operator-only policy) is still required before production.
 
 ## Running it locally
 

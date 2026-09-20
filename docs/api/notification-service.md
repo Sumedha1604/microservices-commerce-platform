@@ -98,7 +98,7 @@ Sanitized message; no SQL, stack trace or exception class is exposed.
 
 ## Security
 
-**Not authorization-protected.** No service API on the platform validates tokens yet, and this one
-is no exception. Notifications identify users and describe their payments, so before production
-these routes need authentication and per-user scoping (a user may read only their own `userId`'s
-notifications), or restriction to operators.
+The API Gateway requires a valid access token for notification routes. Notification Service does not
+validate tokens itself, and the gateway cannot prove ownership for an opaque `notificationId` or
+`orderId`; direct service access bypasses the gateway entirely. Production use therefore still needs
+service-level per-user ownership checks or an operator-only policy.

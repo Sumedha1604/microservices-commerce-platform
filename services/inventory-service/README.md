@@ -69,4 +69,6 @@ Integration coverage (`InventoryPostgresIntegrationTest`) uses Testcontainers to
 - Service port: `8084`.
 - `/actuator/health` is exposed for orchestration; other actuator endpoints are not.
 - `productId` is a UUID reference only — no foreign key to Product Service, no cross-service database access, no Product Service HTTP client.
-- Planned but not implemented: Kafka events, Redis, distributed locking, warehouses, stock adjustment history, and cart/order/payment integration.
+- Inventory consumes `order.compensation.v1` and idempotently releases reservations after a
+  payment-driven order cancellation. It does not publish stock events, use Redis/distributed locks,
+  model warehouses or adjustment history, or validate JWTs; checkout calls its HTTP reservation API.

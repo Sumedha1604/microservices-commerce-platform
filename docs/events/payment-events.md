@@ -193,8 +193,9 @@ the original topic, preserving the `eventId`, and marks the record `REPLAYED` on
 broker acknowledges.
 
 Replay is a redelivery, not a repair: `processed_event` deduplication still applies, and an event
-whose rejecting condition still holds is simply dead-lettered again. Those endpoints are not yet
-authorization-protected. See [dlt-operations.md](dlt-operations.md) for the operator guide and
+whose rejecting condition still holds is simply dead-lettered again. The API Gateway restricts these
+endpoints to `ADMIN`, while direct Order Service access remains a trusted-network boundary. See
+[dlt-operations.md](dlt-operations.md) for the operator guide and
 [../decisions/0003-dlt-inspection-and-replay.md](../decisions/0003-dlt-inspection-and-replay.md)
 for the design.
 
@@ -215,8 +216,8 @@ context propagation rather than hand-built trace headers. See
   `eventId`. Consumer deduplication makes this safe; it is not exactly-once delivery.
 - **This is not exactly-once delivery.** It is at-least-once plus consumer-side deduplication.
   Per-aggregate publication ordering does not change that: a row can still be published twice.
-- **Operator replay is another at-least-once redelivery,** and the admin endpoints that trigger
-  it are not authorization-protected yet. See [dlt-operations.md](dlt-operations.md).
+- **Operator replay is another at-least-once redelivery.** The gateway requires `ADMIN`, but Order
+  Service itself does not validate tokens. See [dlt-operations.md](dlt-operations.md).
 - **Captured dead-letter records are never cleaned up.** `dead_letter_event` stores full payloads
   and has no retention policy.
 - **Published outbox rows are never cleaned up.** `payment_outbox_event` and its indexes grow

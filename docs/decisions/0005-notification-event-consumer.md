@@ -121,8 +121,8 @@ create or send endpoint.
 - **Dead-lettered notification events have no inspection or replay tooling.** ADR 0003's tooling is
   order-service-local and payment-shaped. Manual replay onto `payment.events.v1` is also seen by
   order-service, which deduplicates by `eventId`. See `docs/events/notification-events.md`.
-- **Notification APIs are unauthenticated**, like every other service API today. The records name
-  users and describe their payments, so this has to be closed before production.
+- **Notification APIs are authenticated at the gateway**, but Notification Service does not validate
+  tokens or enforce ownership itself. Opaque-ID reads still need per-user scoping before production.
 - The trace is continuous from payment-service's outbox publish to this consumer. It does not
   continue the original HTTP request's trace, for the same outbox reason as order-service.
 
@@ -132,5 +132,6 @@ create or send endpoint.
   `FAILED`, added by migration), fed by a contact-details source this service is allowed to hold.
 - DLT inspection/replay for `payment.events.v1.notification.DLT`, ideally by generalising ADR 0003's
   tooling rather than copying it.
-- Authorization on `/api/v1/notifications/**`, scoping reads to the caller's own `userId`.
+- Service-level ownership enforcement on `/api/v1/notifications/**`, scoping reads to the caller's
+  own `userId`.
 - Retention for `notification` and `processed_event`.

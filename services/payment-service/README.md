@@ -96,6 +96,7 @@ Integration coverage (`PaymentPostgresIntegrationTest`) uses Testcontainers to r
 - `orderId` and `userId` are UUID references only — no foreign key to Order Service or User Service, no cross-service database access.
 - Payment outcome events use at-least-once delivery; Order Service deduplicates by the persisted
   outbox `eventId`. This is not exactly-once delivery.
-- **Not implemented:** a real payment provider (Stripe/Adyen/PayPal), real money movement,
-  webhook processing, Saga orchestration, inventory event flows, authentication, and provider
-  reconciliation.
+- Checkout creates payments synchronously. Authorization/failure events drive Order Service and,
+  after cancellation, the inventory compensation flow. The gateway authenticates payment routes.
+- **Not implemented:** a real payment provider (Stripe/Adyen/PayPal), money movement, webhooks,
+  provider reconciliation, downstream JWT validation, or resource-ownership enforcement.

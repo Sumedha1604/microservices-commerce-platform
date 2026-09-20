@@ -14,10 +14,10 @@ repository permission and has two independent jobs:
 
 Unit and Testcontainers integration tests run in the normal Maven reactor. GitHub-hosted Ubuntu
 runners provide Docker, so PostgreSQL and Kafka Testcontainers tests can run without repository
-secrets. Tests in `tests/end-to-end` target externally running services; their health checks abort
-when services are unavailable, while Kafka/search/recommendation/notification scenarios remain
-guarded by their existing opt-in system properties. CI does not start the Compose E2E platform and
-does not silently enable those scenarios.
+secrets. Tests in `tests/end-to-end` target externally running services. Health probes skip
+unavailable services, while checkout, Kafka, search, recommendation, and notification scenarios
+are guarded by explicit opt-in system properties. CI does not start the Compose E2E platform or
+silently enable those scenarios.
 
 ## Docker build validation
 

@@ -76,4 +76,7 @@ Integration coverage (`OrderPostgresIntegrationTest`) uses Testcontainers to run
 - Service port: `8086`.
 - `/actuator/health` is exposed for orchestration; other actuator endpoints are not.
 - `userId` and `productId` are UUID references only — no foreign key to User Service or Product Service, no cross-service database access.
-- **Not implemented yet:** Cart Service orchestration, Inventory reservation, Product lookup, Payment, `PAID`/`SHIPPED`/`DELIVERED` states, Kafka, Saga/distributed transactions, checkout orchestration, tax, shipping, discounts, and authentication/security.
+- **Boundary:** Checkout performs Cart/Product/Inventory/Order/Payment orchestration. Order consumes
+  payment events to confirm or cancel, and publishes durable inventory-release compensation after a
+  payment failure. `PAID`/`SHIPPED`/`DELIVERED`, tax, shipping, discounts, downstream JWT validation,
+  and resource-ownership enforcement are not implemented.

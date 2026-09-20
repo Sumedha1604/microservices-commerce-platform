@@ -56,6 +56,8 @@ Inventory reservations are made before order creation. If inventory fails, earli
 
 - Service port is `8088` (`CHECKOUT_SERVER_PORT`).
 - There is no local database.
-- Kafka, Saga/distributed transaction handling, and Redis are not used.
+- Checkout itself does not use Kafka, persist a Saga, or use Redis. Later payment-driven order and
+  inventory compensation is event-driven in the owning services.
 - The cart is not cleared after checkout.
-- There is no real payment provider integration or authentication yet.
+- There is no real payment provider. The gateway authenticates this route, but Checkout Service does
+  not independently validate the token or prove cart ownership.

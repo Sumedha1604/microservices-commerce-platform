@@ -18,7 +18,8 @@ All responses use the shared `ApiResponse` envelope; errors use `ErrorResponse`.
 - `GET /api/v1/notifications?orderId=&userId=&eventType=&notificationType=&status=&page=0&size=20`
 - `GET /api/v1/notifications/order/{orderId}?page=0&size=20`
 
-No write endpoints. Not authorization-protected yet (like the rest of the platform). See
+No write endpoints. The API Gateway requires authentication, but Notification Service does not
+validate tokens or enforce per-user ownership itself. See
 [../../docs/api/notification-service.md](../../docs/api/notification-service.md).
 
 ## Messaging

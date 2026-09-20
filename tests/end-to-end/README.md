@@ -1,5 +1,18 @@
 # End-to-End Tests
 
+## Synchronous checkout tests (opt-in)
+
+The checkout happy path and its inventory/order failure-compensation scenarios call the running
+base Compose stack. They are deliberately excluded from the default Maven reactor so a clean CI
+runner does not depend on external service processes:
+
+```bash
+docker compose -f tests/end-to-end/compose.yml up -d
+mvn -pl tests/end-to-end test -De2e.base=true
+```
+
+Service health probes remain safe in the default reactor and skip individual unavailable services.
+
 ## Payment-creation failure compensation
 
 Checkout payment-failure compensation is covered by unit tests. A full E2E test cannot currently force Payment creation to fail through the public APIs: the Payment service has no provider rejection behavior or supported failure configuration. Do not add a fake endpoint or configuration toggle solely for tests. Revisit this E2E case when a real payment provider or rejection behavior exists.
@@ -25,7 +38,7 @@ mvn -pl tests/end-to-end test -De2e.kafka=true
 
 Both start from a real checkout - the same category/product/inventory/cart chain
 `CheckoutHappyPathE2ETest` builds - and then continue past where it stops. That test asserts the
-synchronous outcome (order and payment both PENDING) and holds with or without a broker; these
+synchronous outcome (order and payment both PENDING) and is enabled with `-De2e.base=true`; these
 assert the asynchronous consequence, which only holds once the event has crossed the topic. The
 order transition is asynchronous, so the terminal status is polled with a bounded timeout.
 

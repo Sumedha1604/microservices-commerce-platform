@@ -29,12 +29,9 @@ Responses use the shared `ApiResponse`; validation and domain errors use `ErrorR
 - Malformed UUID path variables
 - Malformed JSON request bodies
 
-## Not implemented yet
+## Current boundaries
 
-- Product Service validation of `productId`
-- Inventory Service availability checks
-- Price snapshots
-- Checkout / order creation
-- Kafka events
-- Redis
-- Authentication / security
+Cart stores product references and quantities only. Checkout later loads authoritative Product data,
+checks/reserves Inventory, snapshots prices into an Order, and creates a Payment. Cart Service itself
+does not call those services, publish Kafka events, use Redis, clear a cart after checkout, validate
+JWTs, or enforce cart ownership; authentication is applied at the API Gateway.

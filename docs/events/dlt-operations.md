@@ -132,23 +132,23 @@ lives in `processed_event`, exactly as it did before this tooling existed.
 
 ## Security
 
-**These endpoints are not authorization-protected, and that is a known gap.**
+**The API Gateway restricts these endpoints to `ADMIN`; Order Service does not independently validate
+tokens, so the service must remain private.**
 
-This repository has no cross-service authorization model yet: auth-service issues JWTs, but no
-downstream service validates roles from them. Inventing a role check for this controller alone
-would be a fake boundary that looks like security without being it. Instead the routes live under
-the `/api/v1/admin/**` prefix, which an edge policy can match on as a single rule.
+Authorization is centralized at the gateway: it validates Auth Service JWTs and requires `ADMIN`
+for `/api/v1/admin/**`. That policy does not travel with a direct request to Order Service, which is
+why private downstream networking remains part of the security boundary.
 
 **Before production, all of the following are required:**
 
-- Authentication and an admin-role check on `/api/v1/admin/**`, at the gateway or as a resource
-  server filter in order-service.
+- Defense-in-depth authorization in Order Service if direct access cannot be fully prevented.
 - Network-level restriction so admin routes are not publicly routable.
 - An audit trail for who replayed what. Replays are currently logged (record id, `eventId`,
   `eventType`, topic, coordinates, replay count) but not attributed to a principal, because there
-  is no authenticated principal to attribute them to.
+  the downstream service does not receive a durable authenticated-principal audit identity.
 
-Until then, treat replay as an operation available to anyone who can reach the service port.
+Treat replay as an operation available to anyone who can bypass the gateway and reach the service
+port until downstream authorization is added.
 
 ## Observability
 

@@ -1,132 +1,124 @@
 # Microservices Commerce Platform
 
-## Overview
+A portfolio-scale commerce backend demonstrating service-owned data, synchronous orchestration,
+event-driven projections and compensation, gateway security, observability, containerization, and
+a local Kubernetes deployment. The repository contains 12 Java 21 / Spring Boot services, shared
+contracts, PostgreSQL, Kafka, Docker Compose tooling, Kustomize manifests, and GitHub Actions CI.
 
-The Microservices Commerce Platform is a production-oriented distributed commerce system designed to demonstrate backend engineering, microservices architecture, event-driven communication, distributed transactions, containerization, observability, and cloud-native deployment.
+> This is a production-inspired reference implementation, not a production-ready commerce system.
+> Its deliberate limitations are documented below and in the architecture documentation.
 
-The platform will be developed incrementally using independently deployable services. Each implementation step will be tested and reviewed before the next step begins.
+## Architecture at a glance
 
-## Development Status
-
-**Foundation in progress; Authentication Service implemented**
-
-The repository currently contains only the initial project structure and repository-level configuration.
-
-`services/auth-service` provides authentication-only registration, login, JWT access tokens, rotating refresh tokens, and logout. `services/user-service` provides profiles, addresses, preferences, PostgreSQL, and Flyway. `services/product-service` provides the product catalogue (products, categories, brands, images, attributes) with search, pagination, PostgreSQL, Flyway, optimistic locking, and a transactional outbox that publishes `ProductUpserted`/`ProductDeleted` on `product.events.v1`. `services/search-service` consumes those events into its own PostgreSQL search read model (full-text `tsvector` plus `pg_trgm` partial matching, no Elasticsearch) and serves public, read-only `GET /api/v1/search/products` with relevance ranking, filters, sorting and pagination; it is eventually consistent, deduplicates by `eventId`, rejects stale versions, and can only index products whose events are still retained on the topic (see [docs/events/product-events.md](docs/events/product-events.md)). `services/recommendation-service` is a second, independent consumer of the same product events with its own PostgreSQL catalogue projection, serving public, read-only `GET /api/v1/recommendations/products/{productId}`: deterministic content-based related products (same category +5, same brand +2, same-currency price within 20% +1, explained by `score` and `reasons`), no ML, and no popularity/trending because the platform has no trustworthy purchase signal yet (see [docs/decisions/0007-product-recommendations.md](docs/decisions/0007-product-recommendations.md)). `services/inventory-service` tracks per-product stock (total, reserved, and derived available quantity) with reserve/release operations, PostgreSQL, and Flyway; `productId` is referenced only as a UUID, with no foreign key or cross-service database access to Product Service. It also consumes `order.compensation.v1` to release stock reserved for an order whose payment later failed, deduplicating by `eventId` so a redelivery cannot restore stock twice. `services/cart-service` manages one shopping cart per user and its line items, PostgreSQL, and Flyway; `userId` and `productId` are referenced only as UUIDs, with no foreign key or cross-service database access to User Service or Product Service. `services/order-service` creates durable orders with an immutable item snapshot (`PENDING`/`CONFIRMED`/`CANCELLED`), PostgreSQL, Flyway, and optimistic locking; `userId` and `productId` are referenced only as UUIDs, with no foreign key or cross-service database access, and checkout orchestration (Cart, Inventory, Product, Payment integration) is not yet implemented. `services/payment-service` tracks payment records through a `PENDING`/`AUTHORIZED`/`CAPTURED`/`FAILED`/`CANCELLED`/`REFUNDED` lifecycle, PostgreSQL, Flyway, optimistic locking, and a transactional outbox for payment events, with no real payment provider yet; authorizing or failing a payment publishes an event that Order Service consumes to confirm or cancel the order (see [docs/events/payment-events.md](docs/events/payment-events.md)). `services/notification-service` is a second, independent consumer of those payment events (its own consumer group, dead-letter topic `payment.events.v1.notification.DLT`, PostgreSQL, and Flyway): each `PaymentAuthorized`/`PaymentFailed` becomes exactly one durable notification record, deduplicated by `eventId`, inspectable through a read-only `/api/v1/notifications` API that is not yet authorization-protected; there is no email/SMS provider, so records are `INTERNAL` and `CREATED` (recorded, not sent), and no contact details are held (see [docs/events/notification-events.md](docs/events/notification-events.md)). All 12 services expose Prometheus metrics (see [docs/architecture/observability.md](docs/architecture/observability.md)). Two asynchronous flows are implemented on Kafka - payment outcome to order lifecycle over `payment.events.v1`, and order cancellation to inventory release over `order.compensation.v1` (a choreographed Saga compensation published through Order Service's own transactional outbox, see [docs/events/inventory-compensation.md](docs/events/inventory-compensation.md)) - both opt-in locally through [`infrastructure/kafka/compose.kafka.yml`](infrastructure/kafka/compose.kafka.yml); everything else, including checkout, is synchronous HTTP. Order Service captures dead-lettered payment events for inspection and controlled replay under `/api/v1/admin/dlt/payment-events`, which is not yet authorization-protected (see [docs/events/dlt-operations.md](docs/events/dlt-operations.md)). Auth/User synchronization, avatar object storage, alerting, a durable reservation model, dead-letter inspection for the compensation and notification streams, real notification delivery (email/SMS provider), a product re-snapshot job for search and recommendations, dead-letter inspection for the search and recommendation streams, purchase-based popularity recommendations, and further Kafka event flows remain planned; compensation is choreographed rather than run by a Saga orchestrator.
-
-## Resilience and security baseline
-
-The API Gateway validates Auth Service HS256 access tokens, leaves catalogue/search/recommendation
-reads and required auth operations public, requires authentication for user workflows, and requires
-the existing `ADMIN` role for catalogue mutations and `/api/v1/admin/**` DLT operations. It replaces
-spoofable identity headers, checks explicit user-ID paths against the JWT subject, applies explicit
-CORS and API security headers, and exposes only health and Prometheus Actuator endpoints. Direct
-host access to service ports remains a documented local/E2E bypass; production-style deployments must
-make those ports private. See [the security model](docs/security/security-model.md).
-
-Checkout's Cart, Product, Inventory, Order, and Payment HTTP clients now have finite timeouts and
-separate Resilience4j circuit breakers. Safe reads have one bounded retry for transient failures;
-mutations are never automatically retried. Sanitized 502/503/504 failures and Prometheus resilience
-metrics are provided without changing Kafka/outbox/DLT/Saga behavior. See
-[the resilience architecture](docs/architecture/resilience.md) and [ADR 0008](docs/decisions/0008-gateway-security-and-http-resilience.md).
-
-## Kubernetes and CI/CD
-
-The platform has a Kustomize deployment baseline for Docker Desktop Kubernetes. It deploys all 12
-applications into the `commerce` namespace, keeps downstream services private as `ClusterIP`
-Services, and exposes only API Gateway through a local `LoadBalancer`. The local overlay includes a
-single development PostgreSQL instance with ten isolated databases/users, single-node KRaft Kafka,
-and a small Prometheus deployment. Build the local images and deploy with:
-
-```bash
-./infrastructure/scripts/build-kubernetes-images.sh
-kubectl apply -k infrastructure/kubernetes/overlays/local
-kubectl get pods -n commerce
+```mermaid
+flowchart LR
+  Client --> Gateway[API Gateway :8080]
+  Gateway --> Auth[Auth :8081]
+  Gateway --> User[User :8082]
+  Gateway --> Product[Product :8083]
+  Gateway --> Inventory[Inventory :8084]
+  Gateway --> Cart[Cart :8085]
+  Gateway --> Order[Order :8086]
+  Gateway --> Payment[Payment :8087]
+  Gateway --> Checkout[Checkout :8088]
+  Gateway --> Notification[Notification :8089]
+  Gateway --> Search[Search :8090]
+  Gateway --> Recommendation[Recommendation :8091]
+  Checkout --> Cart & Product & Inventory & Order & Payment
+  Product -->|product.events.v1| Kafka[(Kafka)]
+  Payment -->|payment.events.v1| Kafka
+  Order -->|order.compensation.v1| Kafka
+  Kafka --> Search & Recommendation & Order & Notification & Inventory
+  Auth & User & Product & Inventory & Cart & Order & Payment & Notification & Search & Recommendation --> PostgreSQL[(service-owned databases)]
 ```
 
-See [the Kubernetes deployment guide](docs/deployment/kubernetes.md),
-[GitHub Actions guide](docs/ci/github-actions.md), and
-[ADR 0009](docs/decisions/0009-kubernetes-and-ci.md). The manifests are a local/development
-foundation, not a production-ready cloud platform.
+The complete topology, ownership model, checkout sequence, event flows, and deployment boundaries
+are in [System overview](docs/architecture/system-overview.md).
 
-## Planned Architecture
+## Implemented capabilities
 
-The platform will follow these architectural principles:
+- JWT registration/login/refresh/logout and gateway authentication, role checks, CORS, and trusted
+  identity headers.
+- User profiles and addresses; product, category, brand, image, and attribute management.
+- Persistent carts, inventory reservation/release, order lifecycle, payment lifecycle, and a
+  synchronous checkout orchestrator with best-effort compensation.
+- Transactional outboxes and at-least-once Kafka delivery for payment outcomes, inventory-release
+  compensation, and product catalogue changes.
+- Independent notification, PostgreSQL full-text search, and deterministic content-based
+  recommendation read models with deduplication and stale-event protection.
+- Prometheus metrics, correlated structured logs, Loki/Grafana, and Tempo/OpenTelemetry tracing in
+  the Docker Compose environment.
+- Non-root multi-stage images, a 12-service local Kubernetes baseline, Kustomize validation, and
+  Maven/GitHub Actions build automation.
 
-- Independently deployable microservices
-- Database per service
-- No direct cross-service database access
-- REST APIs for synchronous communication
-- Kafka for asynchronous event-driven communication
-- Saga pattern for distributed transactions
-- Transactional outbox pattern for reliable event publishing
-- Idempotent event consumers
-- API Gateway for centralized routing and security
-- Centralized logging, metrics, and distributed tracing
-- Containerized deployment using Docker and Kubernetes
+## Service map
 
-## Planned Technology Stack
+| Service | Port | Database | Primary responsibility |
+|---|---:|---|---|
+| API Gateway | 8080 | none | Routing, JWT validation, authorization, CORS, resilience |
+| Auth | 8081 | `auth_db` | Credentials, access tokens, refresh-token rotation |
+| User | 8082 | `user_db` | Profiles, addresses, preferences |
+| Product | 8083 | `product_db` | Catalogue and product-event outbox |
+| Inventory | 8084 | `inventory_db` | Stock and reservations; compensation consumer |
+| Cart | 8085 | `cart_db` | Persistent carts and line items |
+| Order | 8086 | `order_db` | Order lifecycle, payment consumer, compensation outbox |
+| Payment | 8087 | `payment_db` | Payment lifecycle and payment-event outbox |
+| Checkout | 8088 | none | Synchronous commerce workflow orchestration |
+| Notification | 8089 | `notification_db` | Durable internal notification projection |
+| Search | 8090 | `search_db` | Product search projection and query API |
+| Recommendation | 8091 | `recommendation_db` | Related-product projection and ranking |
 
-### Backend
+## Quick start
 
-- Java
-- Spring Boot
-- Spring Cloud Gateway
-- Spring Security
-- Spring Data JPA
-- Maven
+Prerequisites: JDK 21, Maven 3.9+, and Docker Compose.
 
-### Data and Messaging
+```bash
+mvn test
+mvn package -DskipTests
+docker compose -f tests/end-to-end/compose.yml up -d
+```
 
-- PostgreSQL
-- Redis
-- Apache Kafka
-- OpenSearch
+The base Compose stack starts PostgreSQL and all services. Kafka-backed flows are opt-in:
 
-### Frontend
+```bash
+docker compose -f tests/end-to-end/compose.yml \
+  -f infrastructure/kafka/compose.kafka.yml up -d
+```
 
-- Next.js
-- TypeScript
-- Tailwind CSS
+Add the Prometheus, logging, or tracing overlays described in
+[Observability](docs/architecture/observability.md). Local Kubernetes instructions are in
+[Kubernetes deployment](docs/deployment/kubernetes.md).
 
-### Infrastructure
+## Validation
 
-- Docker
-- Docker Compose
-- Kubernetes
-- GitHub Actions
+```bash
+mvn test
+mvn package -DskipTests
+kubectl kustomize infrastructure/kubernetes/overlays/local >/tmp/commerce.yaml
+git diff --check
+```
 
-### Observability
+The Maven reactor includes unit and integration tests. Running-service checkout scenarios require
+`-De2e.base=true`; Kafka-backed scenarios have separate opt-in flags. See
+[Test strategy](docs/testing/test-strategy.md) and [E2E guide](tests/end-to-end/README.md).
 
-- OpenTelemetry
-- Prometheus
-- Grafana
-- Loki
-- Jaeger
+## Documentation
 
-## Repository Structure
+Start with the [documentation index](docs/README.md), [system overview](docs/architecture/system-overview.md),
+and [project summary](docs/project-summary.md). Per-service API/database references and architecture
+decision records document the contracts and tradeoffs in detail.
 
-```text
-microservices-commerce-platform/
-├── services/
-├── frontend/
-├── infrastructure/
-│   ├── docker/
-│   ├── kubernetes/
-│   ├── observability/
-│   └── scripts/
-├── docs/
-│   ├── architecture/
-│   ├── api/
-│   ├── database/
-│   ├── events/
-│   └── decisions/
-├── tests/
-│   ├── integration/
-│   ├── end-to-end/
-│   └── performance/
-├── .editorconfig
-├── .gitattributes
-├── .gitignore
-├── README.md
-└── CONTRIBUTING.md
+## Known limitations
+
+- The payment provider and notification delivery channels are simulated; no money, email, or SMS
+  leaves the platform.
+- Gateway security is not duplicated in downstream services. Directly exposed service ports bypass
+  it, and several opaque resource identifiers still need service-level ownership checks.
+- Kafka delivery is at-least-once, outbox/DLT tables have no retention jobs, and search/recommendation
+  bootstrap is limited by topic retention.
+- The Kubernetes stack is a single-node development baseline: one PostgreSQL instance, one ephemeral
+  Kafka broker, development secrets, no TLS/Ingress, no autoscaling, and no cloud deployment.
+- There is no frontend, shipping/tax/discount subsystem, HA design, alerting, or automated release.
+
+These boundaries are intentional and are summarized with next steps in
+[Project summary](docs/project-summary.md).

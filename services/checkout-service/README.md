@@ -32,7 +32,8 @@ The original failure is preserved if a compensation request also fails.
 ## Runtime boundaries
 
 - No local database is used.
-- No Kafka, Saga implementation, or Redis is used.
+- Checkout itself uses no Kafka, persistent Saga, or Redis. Payment-driven order and inventory
+  compensation is event-driven in the owning services.
 - Checkout does not clear the cart.
 - Gateway authentication protects checkout at the ingress boundary; direct service access remains a deployment concern.
 - No real payment provider is implemented.
