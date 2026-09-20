@@ -7,6 +7,8 @@
 - [Project summary](project-summary.md) — portfolio-oriented scope, engineering decisions, and gaps.
 - [Test strategy](testing/test-strategy.md) — test layers, commands, CI coverage, and known limits.
 - [Root README](../README.md) — concise project introduction and quick start.
+- [Frontend guide](../frontend/README.md) — routes, gateway contract map, auth behavior, local setup,
+  testing, and known UI boundaries.
 
 ## Architecture and operations
 

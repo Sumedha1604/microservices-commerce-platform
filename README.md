@@ -1,9 +1,10 @@
 # Microservices Commerce Platform
 
-A portfolio-scale commerce backend demonstrating service-owned data, synchronous orchestration,
+A portfolio-scale commerce application demonstrating service-owned data, synchronous orchestration,
 event-driven projections and compensation, gateway security, observability, containerization, and
 a local Kubernetes deployment. The repository contains 12 Java 21 / Spring Boot services, shared
-contracts, PostgreSQL, Kafka, Docker Compose tooling, Kustomize manifests, and GitHub Actions CI.
+contracts, a React/TypeScript storefront, PostgreSQL, Kafka, Docker tooling, Kustomize manifests,
+and GitHub Actions CI.
 
 > This is a production-inspired reference implementation, not a production-ready commerce system.
 > Its deliberate limitations are documented below and in the architecture documentation.
@@ -12,7 +13,8 @@ contracts, PostgreSQL, Kafka, Docker Compose tooling, Kustomize manifests, and G
 
 ```mermaid
 flowchart LR
-  Client --> Gateway[API Gateway :8080]
+  Browser --> Frontend[React frontend :3000]
+  Frontend --> Gateway[API Gateway :8080]
   Gateway --> Auth[Auth :8081]
   Gateway --> User[User :8082]
   Gateway --> Product[Product :8083]
@@ -39,6 +41,8 @@ are in [System overview](docs/architecture/system-overview.md).
 
 - JWT registration/login/refresh/logout and gateway authentication, role checks, CORS, and trusted
   identity headers.
+- Responsive React storefront with catalogue search, product recommendations, persistent cart,
+  checkout, orders, notifications, profile preferences, and role-protected administration.
 - User profiles and addresses; product, category, brand, image, and attribute management.
 - Persistent carts, inventory reservation/release, order lifecycle, payment lifecycle, and a
   synchronous checkout orchestrator with best-effort compensation.
@@ -48,7 +52,7 @@ are in [System overview](docs/architecture/system-overview.md).
   recommendation read models with deduplication and stale-event protection.
 - Prometheus metrics, correlated structured logs, Loki/Grafana, and Tempo/OpenTelemetry tracing in
   the Docker Compose environment.
-- Non-root multi-stage images, a 12-service local Kubernetes baseline, Kustomize validation, and
+- Non-root multi-stage images, a frontend plus 12-service local Kubernetes baseline, Kustomize validation, and
   Maven/GitHub Actions build automation.
 
 ## Service map
@@ -70,12 +74,13 @@ are in [System overview](docs/architecture/system-overview.md).
 
 ## Quick start
 
-Prerequisites: JDK 21, Maven 3.9+, and Docker Compose.
+Prerequisites: JDK 21, Maven 3.9+, Node.js 20.19+, and Docker Compose.
 
 ```bash
 mvn test
 mvn package -DskipTests
 docker compose -f tests/end-to-end/compose.yml up -d
+cd frontend && npm ci && npm run dev
 ```
 
 The base Compose stack starts PostgreSQL and all services. Kafka-backed flows are opt-in:
@@ -93,6 +98,7 @@ Add the Prometheus, logging, or tracing overlays described in
 
 ```bash
 mvn test
+cd frontend && npm run lint && npm test && npm run build
 mvn package -DskipTests
 kubectl kustomize infrastructure/kubernetes/overlays/local >/tmp/commerce.yaml
 git diff --check
@@ -118,7 +124,7 @@ decision records document the contracts and tradeoffs in detail.
   bootstrap is limited by topic retention.
 - The Kubernetes stack is a single-node development baseline: one PostgreSQL instance, one ephemeral
   Kafka broker, development secrets, no TLS/Ingress, no autoscaling, and no cloud deployment.
-- There is no frontend, shipping/tax/discount subsystem, HA design, alerting, or automated release.
+- There is no shipping/tax/discount subsystem, HA design, alerting, or automated release.
 
 These boundaries are intentional and are summarized with next steps in
 [Project summary](docs/project-summary.md).

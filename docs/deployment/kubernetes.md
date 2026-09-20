@@ -7,9 +7,9 @@ macOS. It is not a production cloud design. All resources use the `commerce` nam
 base resources live under `infrastructure/kubernetes/base`; the deployable local configuration is
 `infrastructure/kubernetes/overlays/local`.
 
-The base contains all 12 applications, PostgreSQL, Kafka, and Prometheus. Each application has one
-Deployment and one ClusterIP Service. The local overlay changes only `api-gateway` to a
-LoadBalancer and generates development secrets. No downstream application is externally exposed,
+The base contains the frontend, all 12 services, PostgreSQL, Kafka, and Prometheus. Each application
+has one Deployment and one ClusterIP Service. The local overlay changes `frontend` and `api-gateway`
+to LoadBalancers and generates development secrets. No downstream microservice is externally exposed,
 which removes the direct host-port security bypass present in the E2E Compose topology.
 
 ## Prerequisites
@@ -26,7 +26,9 @@ entire stack will fit.
 
 ## Build local images
 
-All Dockerfiles use Java 21 multi-stage builds and run the application as the non-root `app` user.
+Backend Dockerfiles use Java 21 multi-stage builds and run as a non-root user. The frontend uses a
+Node build stage and an unprivileged Nginx runtime. Its API Gateway URL is compiled from
+`VITE_API_BASE_URL` and defaults to `http://localhost:8080` for the local overlay.
 Build images with names matching the local manifests:
 
 ```bash
@@ -73,16 +75,20 @@ startup and Flyway locking need an operational rollout policy.
 
 ## Access
 
-API Gateway is the only application ingress boundary. On Docker Desktop, find its external address:
+The frontend and API Gateway are the only externally reachable application services; the gateway is
+the sole API ingress boundary. On Docker Desktop, find their external addresses:
 
 ```bash
 kubectl get service api-gateway -n commerce
+kubectl get service frontend -n commerce
 curl http://localhost:8080/actuator/health
 ```
 
-If the local LoadBalancer does not map to localhost, use the displayed external IP or temporarily
+Open the frontend on `http://localhost:3000`. If a local LoadBalancer does not map to localhost, use
+the displayed external IP or temporarily
 run `kubectl port-forward -n commerce service/api-gateway 8080:8080`. Do not expose downstream
-services merely for convenience.
+services merely for convenience. A frontend image built for another gateway address must pass that
+address as `--build-arg VITE_API_BASE_URL=...`.
 
 Prometheus remains internal and can be inspected with:
 
@@ -151,4 +157,3 @@ Prometheus is ephemeral and Grafana/Loki/Tempo are omitted. The shared JWT secre
 a coordinated way if gateway/auth replicas are added. Flyway startup assumes low replica counts.
 Production requires migration coordination, durable managed data services, resource/load testing,
 network segmentation, secret rotation, TLS, monitoring retention, alerting, and disaster recovery.
-
