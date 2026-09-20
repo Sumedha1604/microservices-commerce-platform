@@ -1,0 +1,45 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+      - name: Run reactor tests
+        run: mvn --batch-mode --no-transfer-progress test
+      - name: Package applications
+        run: mvn --batch-mode --no-transfer-progress package -DskipTests
+
+  manifest-validation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: azure/setup-kubectl@v4
+        with:
+          version: v1.33.0
+      - name: Render local overlay
+        run: kubectl kustomize infrastructure/kubernetes/overlays/local > /tmp/commerce-manifests.yaml
+      - name: Render non-secret base for schema validation
+        run: kubectl kustomize infrastructure/kubernetes/base > /tmp/commerce-base-manifests.yaml
+      - name: Validate Kubernetes base schemas
+        run: >-
+          docker run --rm
+          -v /tmp/commerce-base-manifests.yaml:/manifests/commerce.yaml:ro
+          ghcr.io/yannh/kubeconform:v0.7.0
+          -strict -summary -kubernetes-version 1.33.0
+          /manifests/commerce.yaml

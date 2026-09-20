@@ -1,0 +1,21 @@
+global:
+  scrape_interval: 30s
+
+scrape_configs:
+  - job_name: commerce-services
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets:
+          - api-gateway:8080
+          - auth-service:8081
+          - user-service:8082
+          - product-service:8083
+          - inventory-service:8084
+          - cart-service:8085
+          - order-service:8086
+          - payment-service:8087
+          - checkout-service:8088
+          - notification-service:8089
+          - search-service:8090
+          - recommendation-service:8091
+

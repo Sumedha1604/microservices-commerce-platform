@@ -3,6 +3,7 @@ package com.sumedha.commerce.checkout.client;
 import com.sumedha.commerce.common.core.exception.BadRequestException;
 import com.sumedha.commerce.common.core.exception.ConflictException;
 import com.sumedha.commerce.common.core.exception.ForbiddenException;
+import com.sumedha.commerce.common.core.exception.InternalServerException;
 import com.sumedha.commerce.common.core.exception.ResourceNotFoundException;
 import com.sumedha.commerce.common.core.exception.UnauthorizedException;
 import com.sumedha.commerce.checkout.exception.DownstreamBadGatewayException;
