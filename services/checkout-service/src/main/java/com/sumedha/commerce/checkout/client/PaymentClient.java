@@ -7,6 +7,7 @@ import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
+import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
 
 @Component
 public class PaymentClient extends DownstreamClient {
@@ -20,6 +21,7 @@ public class PaymentClient extends DownstreamClient {
         this.restClient = restClientBuilder.baseUrl(baseUrl).build();
     }
 
+    @CircuitBreaker(name = "paymentService")
     public PaymentResponse createPayment(CreatePaymentRequest request) {
         return execute(() -> restClient.post()
                 .uri("/api/v1/payments")

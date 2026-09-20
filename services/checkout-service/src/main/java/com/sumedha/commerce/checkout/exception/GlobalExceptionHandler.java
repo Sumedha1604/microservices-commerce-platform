@@ -7,6 +7,7 @@ import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import io.github.resilience4j.circuitbreaker.CallNotPermittedException;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
@@ -19,6 +20,12 @@ public class GlobalExceptionHandler {
     @ExceptionHandler({MethodArgumentNotValidException.class, HttpMessageNotReadableException.class})
     ResponseEntity<ErrorResponse> badRequest(Exception exception) {
         return ResponseEntity.badRequest().body(ErrorResponse.of("BAD_REQUEST", "Request validation failed", 400));
+    }
+
+    @ExceptionHandler(CallNotPermittedException.class)
+    ResponseEntity<ErrorResponse> circuitOpen(CallNotPermittedException exception) {
+        return ResponseEntity.status(503)
+                .body(ErrorResponse.of("DOWNSTREAM_CIRCUIT_OPEN", "A downstream service is temporarily unavailable", 503));
     }
 
     @ExceptionHandler(Exception.class)

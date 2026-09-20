@@ -9,6 +9,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 
 import java.util.UUID;
+import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
 
 @Component
 public class OrderClient extends DownstreamClient {
@@ -22,6 +23,7 @@ public class OrderClient extends DownstreamClient {
         this.restClient = restClientBuilder.baseUrl(baseUrl).build();
     }
 
+    @CircuitBreaker(name = "orderService")
     public OrderResponse createOrder(CreateOrderRequest request) {
         return execute(() -> restClient.post()
                 .uri("/api/v1/orders")
@@ -31,6 +33,7 @@ public class OrderClient extends DownstreamClient {
                 .body(ORDER_RESPONSE), "order");
     }
 
+    @CircuitBreaker(name = "orderService")
     public OrderResponse cancelOrder(UUID orderId) {
         return execute(() -> restClient.post()
                 .uri("/api/v1/orders/{orderId}/cancel", orderId)

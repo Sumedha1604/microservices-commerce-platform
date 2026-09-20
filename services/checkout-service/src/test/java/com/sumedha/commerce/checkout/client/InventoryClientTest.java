@@ -2,7 +2,7 @@ package com.sumedha.commerce.checkout.client;
 
 import com.sumedha.commerce.checkout.dto.downstream.inventory.InventoryGetResponse;
 import com.sumedha.commerce.checkout.dto.downstream.inventory.ReserveReleaseInventoryRequest;
-import com.sumedha.commerce.common.core.exception.InternalServerException;
+import com.sumedha.commerce.checkout.exception.DownstreamBadGatewayException;
 import org.junit.jupiter.api.Test;
 import org.springframework.web.client.RestClient;
 
@@ -46,7 +46,7 @@ class InventoryClientTest {
         try (DownstreamClientTestServer server = new DownstreamClientTestServer()) {
             server.respond(500, "{}");
 
-            assertThrows(InternalServerException.class,
+            assertThrows(DownstreamBadGatewayException.class,
                     () -> new InventoryClient(RestClient.builder(), server.baseUrl()).getInventoryByProductId(UUID.randomUUID()));
         }
     }

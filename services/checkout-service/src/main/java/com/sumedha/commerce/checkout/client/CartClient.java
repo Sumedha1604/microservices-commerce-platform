@@ -7,6 +7,8 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 
 import java.util.UUID;
+import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
+import io.github.resilience4j.retry.annotation.Retry;
 
 @Component
 public class CartClient extends DownstreamClient {
@@ -20,6 +22,8 @@ public class CartClient extends DownstreamClient {
         this.restClient = restClientBuilder.baseUrl(baseUrl).build();
     }
 
+    @Retry(name = "cartService")
+    @CircuitBreaker(name = "cartService")
     public CartGetResponse getCart(UUID cartId) {
         return execute(() -> restClient.get()
                 .uri("/api/v1/carts/{cartId}", cartId)

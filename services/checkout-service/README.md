@@ -34,7 +34,15 @@ The original failure is preserved if a compensation request also fails.
 - No local database is used.
 - No Kafka, Saga implementation, or Redis is used.
 - Checkout does not clear the cart.
-- No real payment provider or authentication flow is implemented yet.
+- Gateway authentication protects checkout at the ingress boundary; direct service access remains a deployment concern.
+- No real payment provider is implemented.
+
+## HTTP resilience
+
+Every downstream call has finite connection and response timeouts. Cart, product, and inventory GETs
+make at most two attempts for transport/5xx failures. Mutations are single-attempt because retrying an
+ambiguous timeout could duplicate side effects. Separate Resilience4j circuit breakers and Prometheus
+metrics cover all five dependencies. See [`docs/architecture/resilience.md`](../../docs/architecture/resilience.md).
 
 ## Running locally
 
@@ -52,3 +60,5 @@ mvn -pl services/checkout-service -am spring-boot:run
 | `INVENTORY_SERVICE_URL` | `http://localhost:8084` |
 | `ORDER_SERVICE_URL` | `http://localhost:8086` |
 | `PAYMENT_SERVICE_URL` | `http://localhost:8087` |
+| `CHECKOUT_HTTP_CONNECT_TIMEOUT` | `1s` |
+| `CHECKOUT_HTTP_READ_TIMEOUT` | `2s` |
