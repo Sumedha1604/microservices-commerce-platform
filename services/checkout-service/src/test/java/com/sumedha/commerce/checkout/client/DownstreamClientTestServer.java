@@ -8,16 +8,23 @@ import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayDeque;
 import java.util.Deque;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 final class DownstreamClientTestServer implements AutoCloseable {
 
     private final HttpServer server;
+    private final ExecutorService executor = Executors.newCachedThreadPool();
     private final Deque<Response> responses = new ArrayDeque<>();
+    private final List<Request> requests = new ArrayList<>();
     private Request lastRequest;
 
     DownstreamClientTestServer() throws IOException {
         server = HttpServer.create(new InetSocketAddress("localhost", 0), 0);
         server.createContext("/", this::handle);
+        server.setExecutor(executor);
         server.start();
     }
 
@@ -26,11 +33,19 @@ final class DownstreamClientTestServer implements AutoCloseable {
     }
 
     void respond(int status, String body) {
-        responses.add(new Response(status, body));
+        respondAfter(0, status, body);
+    }
+
+    synchronized void respondAfter(long delayMillis, int status, String body) {
+        responses.add(new Response(delayMillis, status, body));
     }
 
     Request lastRequest() {
         return lastRequest;
+    }
+
+    synchronized int requestCount() {
+        return requests.size();
     }
 
     private void handle(HttpExchange exchange) throws IOException {
@@ -38,22 +53,41 @@ final class DownstreamClientTestServer implements AutoCloseable {
                 exchange.getRequestMethod(),
                 exchange.getRequestURI().getPath(),
                 new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8));
-        Response response = responses.removeFirst();
+        synchronized (this) {
+            requests.add(lastRequest);
+        }
+        Response response;
+        synchronized (this) {
+            response = responses.removeFirst();
+        }
+        if (response.delayMillis() > 0) {
+            try {
+                Thread.sleep(response.delayMillis());
+            } catch (InterruptedException exception) {
+                Thread.currentThread().interrupt();
+            }
+        }
         byte[] body = response.body().getBytes(StandardCharsets.UTF_8);
-        exchange.getResponseHeaders().set("Content-Type", "application/json");
-        exchange.sendResponseHeaders(response.status(), body.length);
-        exchange.getResponseBody().write(body);
-        exchange.close();
+        try {
+            exchange.getResponseHeaders().set("Content-Type", "application/json");
+            exchange.sendResponseHeaders(response.status(), body.length);
+            exchange.getResponseBody().write(body);
+        } catch (IOException ignored) {
+            // Expected when a timeout test closes the client side first.
+        } finally {
+            exchange.close();
+        }
     }
 
     @Override
     public void close() {
         server.stop(0);
+        executor.shutdownNow();
     }
 
     record Request(String method, String path, String body) {
     }
 
-    private record Response(int status, String body) {
+    private record Response(long delayMillis, int status, String body) {
     }
 }

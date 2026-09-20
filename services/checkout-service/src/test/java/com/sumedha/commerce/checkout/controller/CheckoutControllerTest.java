@@ -2,6 +2,9 @@ package com.sumedha.commerce.checkout.controller;
 
 import com.sumedha.commerce.checkout.dto.response.CheckoutResponse;
 import com.sumedha.commerce.checkout.exception.GlobalExceptionHandler;
+import com.sumedha.commerce.checkout.exception.DownstreamTimeoutException;
+import io.github.resilience4j.circuitbreaker.CallNotPermittedException;
+import io.github.resilience4j.circuitbreaker.CircuitBreaker;
 import com.sumedha.commerce.checkout.service.CheckoutService;
 import com.sumedha.commerce.common.core.exception.ConflictException;
 import org.junit.jupiter.api.BeforeEach;
@@ -89,6 +92,34 @@ class CheckoutControllerTest {
                 .andExpect(status().isInternalServerError())
                 .andExpect(jsonPath("$.errorCode").value("INTERNAL_SERVER_ERROR"))
                 .andExpect(jsonPath("$.message").value("An unexpected error occurred"));
+    }
+
+    @Test
+    void mapsTimeoutToSanitizedGatewayTimeout() throws Exception {
+        UUID cartId = UUID.randomUUID();
+        service.failure = new DownstreamTimeoutException("payment");
+
+        mvc.perform(post("/api/v1/checkouts")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"cartId\":\"" + cartId + "\"}"))
+                .andExpect(status().isGatewayTimeout())
+                .andExpect(jsonPath("$.errorCode").value("DOWNSTREAM_TIMEOUT"))
+                .andExpect(jsonPath("$.message").value("payment service timed out"));
+    }
+
+    @Test
+    void mapsOpenCircuitToSanitizedServiceUnavailable() throws Exception {
+        UUID cartId = UUID.randomUUID();
+        CircuitBreaker breaker = CircuitBreaker.ofDefaults("paymentService");
+        breaker.transitionToOpenState();
+        service.failure = CallNotPermittedException.createCallNotPermittedException(breaker);
+
+        mvc.perform(post("/api/v1/checkouts")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"cartId\":\"" + cartId + "\"}"))
+                .andExpect(status().isServiceUnavailable())
+                .andExpect(jsonPath("$.errorCode").value("DOWNSTREAM_CIRCUIT_OPEN"))
+                .andExpect(jsonPath("$.message").value("A downstream service is temporarily unavailable"));
     }
 
     private static final class StubCheckoutService implements CheckoutService {
