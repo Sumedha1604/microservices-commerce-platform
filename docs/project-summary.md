@@ -2,8 +2,8 @@
 
 ## What this project demonstrates
 
-This repository is a production-inspired commerce backend implemented as a Java 21/Spring Boot
-monorepo. Twelve services cover identity, customers, catalogue, inventory, carts, orders, payments,
+This repository is a production-inspired commerce application with a React/TypeScript frontend and
+a Java 21/Spring Boot monorepo. Twelve services cover identity, customers, catalogue, inventory, carts, orders, payments,
 checkout, notifications, search, recommendations, and edge routing. The focus is the engineering of
 distributed boundaries: service-owned data, explicit contracts, reliable events, compensating actions,
 security at ingress, observable operations, and repeatable delivery artifacts.
@@ -28,7 +28,7 @@ security at ingress, observable operations, and repeatable delivery artifacts.
 
 ## Technology and patterns
 
-Java 21, Spring Boot, Spring Cloud Gateway, Spring Security, Spring Data JPA, Flyway, PostgreSQL,
+React 19, TypeScript, Vite, React Router, Java 21, Spring Boot, Spring Cloud Gateway, Spring Security, Spring Data JPA, Flyway, PostgreSQL,
 Apache Kafka in KRaft mode, Maven, Testcontainers, Docker/Compose, Kubernetes/Kustomize, Prometheus,
 Grafana, Loki, Promtail, Tempo, OpenTelemetry, and GitHub Actions.
 
@@ -42,7 +42,8 @@ This is not presented as a finished production platform. Payment and notificatio
 simulated. Gateway JWT enforcement is not repeated downstream, and opaque-ID ownership enforcement
 is incomplete. Kafka and PostgreSQL are single-node locally; outbox/DLT retention, a full projection
 backfill mechanism, TLS, managed secrets, autoscaling, alerting, HA/DR, cloud deployment, and automated
-releases remain future operational work. There is no frontend or shipping/tax/discount domain.
+releases remain future operational work. The UI intentionally mirrors existing contracts and does
+not invent shipping, tax, discount, payment-provider, or notification-delivery capabilities.
 
 Those omissions keep the project focused on demonstrable backend and platform fundamentals without
 claiming capabilities that are not implemented.
@@ -51,7 +52,8 @@ claiming capabilities that are not implemented.
 
 1. Read the [system overview](architecture/system-overview.md) for topology and event sequences.
 2. Run `mvn test` and inspect service integration tests for failure and duplicate-delivery behavior.
-3. Start the base Compose stack and exercise checkout; add Kafka for asynchronous outcomes.
+3. Start the base Compose stack and the frontend, then exercise gateway-backed checkout; add Kafka
+   for asynchronous outcomes.
 4. Review the event operator guides and architecture decisions for reliability tradeoffs.
 5. Render the local Kubernetes overlay and inspect the gateway-only ingress, probes, limits, secrets,
    service discovery, PostgreSQL initialization, Kafka, and Prometheus configuration.

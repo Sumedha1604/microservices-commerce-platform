@@ -3,11 +3,13 @@
 ## Automatic CI
 
 `.github/workflows/ci.yml` runs on every pull request and every push to `main`. It grants read-only
-repository permission and has two independent jobs:
+repository permission and has three independent jobs:
 
-1. `build-and-test` installs Temurin Java 21 with Maven dependency caching, runs the full reactor
+1. `frontend` installs Node 20.19 with npm caching and runs `npm ci`, lint, Vitest, and the Vite
+   production build.
+2. `build-and-test` installs Temurin Java 21 with Maven dependency caching, runs the full reactor
    with `mvn test`, then verifies packaging with `mvn package -DskipTests`.
-2. `manifest-validation` renders the local Kustomize overlay with kubectl 1.33.0 and validates every
+3. `manifest-validation` renders the local Kustomize overlay with kubectl 1.33.0 and validates every
    non-secret base objects against Kubernetes schemas with kubeconform 0.7.0 in strict mode. The
    local overlay (including its generated development Secret) must also render successfully, but
    credential values are not passed into the third-party validation container.
@@ -21,10 +23,9 @@ silently enable those scenarios.
 
 ## Docker build validation
 
-`.github/workflows/docker-build-validation.yml` is manual (`workflow_dispatch`) because building 12
-full Maven-based images on every pull request is expensive and redundant with the reactor build. It
-uses a matrix to build every service Dockerfile, uses the GitHub Actions build cache, and never logs
-in or pushes. It requires no registry credentials.
+`.github/workflows/docker-build-validation.yml` is manual (`workflow_dispatch`) because building all
+service and frontend images on every pull request is expensive and redundant with the normal builds.
+It uses a matrix and the GitHub Actions build cache, never logs in, and never pushes.
 
 Image publication is intentionally not implemented. A future release-only GHCR workflow should use
 the built-in `GITHUB_TOKEN`, immutable SHA/version tags, and must never push from pull requests.
@@ -34,6 +35,7 @@ the built-in `GITHUB_TOKEN`, immutable SHA/version tags, and must never push fro
 ```bash
 mvn test
 mvn package -DskipTests
+cd frontend && npm ci && npm run lint && npm test && npm run build
 kubectl kustomize infrastructure/kubernetes/overlays/local > /tmp/commerce.yaml
 kubectl kustomize infrastructure/kubernetes/base > /tmp/commerce-base.yaml
 docker run --rm \

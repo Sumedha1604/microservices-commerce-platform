@@ -5,6 +5,7 @@ resources:
   - ../../base
 patches:
   - path: gateway-load-balancer.yaml
+  - path: frontend-load-balancer.yaml
 secretGenerator:
   - name: commerce-secrets
     literals:
@@ -22,4 +23,3 @@ secretGenerator:
       - RECOMMENDATION_DB_PASSWORD=recommendation_password
 generatorOptions:
   disableNameSuffixHash: true
-

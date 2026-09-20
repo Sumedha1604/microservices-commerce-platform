@@ -4,6 +4,7 @@ namespace: commerce
 resources:
   - namespace.yaml
   - configmap.yaml
+  - frontend
   - api-gateway
   - auth-service
   - user-service
@@ -19,4 +20,3 @@ resources:
   - postgres
   - kafka
   - observability
-

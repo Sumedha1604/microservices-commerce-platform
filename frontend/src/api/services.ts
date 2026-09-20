@@ -1,0 +1,20 @@
+import { api, query } from './client';
+import type { Address, AuthResponse, Brand, Cart, Checkout, DeadLetter, DeadLetterDetail, Notification, Order, PageResponse, Preferences, Product, ProductSummary, ProductWrite, Profile, Recommendations, SearchProduct } from '../types';
+
+export const authApi = { login: (email: string, password: string) => api<AuthResponse>('/api/v1/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) }), register: (email: string, password: string) => api<AuthResponse>('/api/v1/auth/register', { method: 'POST', body: JSON.stringify({ email, password }) }), logout: (refreshToken: string) => api<void>('/api/v1/auth/logout', { method: 'POST', body: JSON.stringify({ refreshToken }) }) };
+export const productApi = {
+  list: (page = 0, size = 12, status = 'ACTIVE') => api<PageResponse<ProductSummary>>(`/api/v1/products${query({ page, size, status, sortBy: 'name', sortDirection: 'ASC' })}`),
+  get: (id: string) => api<Product>(`/api/v1/products/${id}`),
+  categories: () => api<import('../types').Category[]>('/api/v1/categories'), brands: () => api<Brand[]>('/api/v1/brands'),
+  create: (value: ProductWrite) => api<Product>('/api/v1/products', { method: 'POST', body: JSON.stringify(value) }),
+  update: (id: string, value: ProductWrite) => api<Product>(`/api/v1/products/${id}`, { method: 'PUT', body: JSON.stringify(value) }),
+  remove: (id: string) => api<void>(`/api/v1/products/${id}`, { method: 'DELETE' }),
+};
+export const searchApi = { search: (params: Record<string, string | number | undefined>) => api<PageResponse<SearchProduct>>(`/api/v1/search/products${query(params)}`) };
+export const recommendationApi = { get: (id: string) => api<Recommendations>(`/api/v1/recommendations/products/${id}?limit=4`) };
+export const cartApi = { getForUser: (id: string) => api<Cart>(`/api/v1/carts/user/${id}`), create: (userId: string) => api<Cart>('/api/v1/carts', { method: 'POST', body: JSON.stringify({ userId }) }), add: (cartId: string, productId: string, quantity = 1) => api<Cart>(`/api/v1/carts/${cartId}/items`, { method: 'POST', body: JSON.stringify({ productId, quantity }) }), update: (cartId: string, productId: string, quantity: number) => api<Cart>(`/api/v1/carts/${cartId}/items/${productId}`, { method: 'PATCH', body: JSON.stringify({ quantity }) }), remove: (cartId: string, productId: string) => api<void>(`/api/v1/carts/${cartId}/items/${productId}`, { method: 'DELETE' }), clear: (cartId: string) => api<void>(`/api/v1/carts/${cartId}/items`, { method: 'DELETE' }) };
+export const checkoutApi = { create: (cartId: string) => api<Checkout>('/api/v1/checkouts', { method: 'POST', body: JSON.stringify({ cartId }) }) };
+export const orderApi = { forUser: (id: string) => api<Order[]>(`/api/v1/orders/user/${id}`), get: (id: string) => api<Order>(`/api/v1/orders/${id}`) };
+export const notificationApi = { forUser: (id: string, page = 0) => api<PageResponse<Notification>>(`/api/v1/notifications${query({ userId: id, page, size: 20 })}`) };
+export const userApi = { profile: (id: string) => api<Profile>(`/api/v1/users/${id}/profile`), createProfile: (id: string, value: Omit<Profile, 'profileId'|'authUserId'>) => api<Profile>(`/api/v1/users/${id}/profile`, { method: 'POST', body: JSON.stringify(value) }), updateProfile: (id: string, value: Omit<Profile, 'profileId'|'authUserId'>) => api<Profile>(`/api/v1/users/${id}/profile`, { method: 'PUT', body: JSON.stringify(value) }), addresses: (id: string) => api<Address[]>(`/api/v1/users/${id}/addresses`), preferences: (id: string) => api<Preferences>(`/api/v1/users/${id}/preferences`), updatePreferences: (id: string, value: Preferences) => api<Preferences>(`/api/v1/users/${id}/preferences`, { method: 'PUT', body: JSON.stringify(value) }) };
+export const adminApi = { dlt: (page = 0) => api<PageResponse<DeadLetter>>(`/api/v1/admin/dlt/payment-events?page=${page}&size=20`), dltDetail: (id: string) => api<DeadLetterDetail>(`/api/v1/admin/dlt/payment-events/${id}`), replay: (id: string) => api<unknown>(`/api/v1/admin/dlt/payment-events/${id}/replay`, { method: 'POST' }) };

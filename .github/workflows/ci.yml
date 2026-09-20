@@ -9,6 +9,24 @@ permissions:
   contents: read
 
 jobs:
+  frontend:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "20.19"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: npm run lint
+      - run: npm test
+      - run: npm run build
+
   build-and-test:
     runs-on: ubuntu-latest
     timeout-minutes: 45

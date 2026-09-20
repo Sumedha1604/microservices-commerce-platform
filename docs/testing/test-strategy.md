@@ -11,6 +11,7 @@ repeatable while infrastructure-heavy scenarios are explicit.
 | Layer | Location | What it proves | Infrastructure |
 |---|---|---|---|
 | Unit/component | each service `src/test` | domain transitions, validation, mapping, gateway policy, retry/compensation logic | mocks or in-process context |
+| Frontend unit/component | `frontend/src/**/*.test.*` | auth state, route guards, API errors, product, cart, and checkout UI behavior | Vitest and jsdom |
 | Persistence integration | service integration tests | Flyway schemas, PostgreSQL constraints, repositories, outbox and deduplication transactions | Testcontainers PostgreSQL where required |
 | Messaging integration | producer/consumer service tests | serialization, retry/DLT behavior, idempotency, ordering/version guards | embedded/mocked broker components plus PostgreSQL as defined by each module |
 | End-to-end base | `tests/end-to-end` | health and synchronous checkout success/failure compensation across real services | Docker Compose; checkout scenarios require `-De2e.base=true` |
@@ -23,6 +24,7 @@ From the repository root:
 
 ```bash
 mvn test
+cd frontend && npm ci && npm run lint && npm test && npm run build
 mvn package -DskipTests
 git diff --check
 kubectl kustomize infrastructure/kubernetes/overlays/local >/tmp/commerce.yaml
@@ -63,7 +65,8 @@ being redundantly asserted end to end.
 
 ## CI coverage
 
-The required `CI` workflow runs the complete Maven reactor, packages all modules, renders the local
+The required `CI` workflow validates the frontend with Node 20 (`npm ci`, lint, tests, build), runs
+the complete Maven reactor, packages all modules, renders the local
 Kustomize overlay, and validates the non-secret base against Kubernetes schemas. The manually
 dispatched Docker workflow builds every service image without publishing it. CI deliberately does
 not deploy a cluster, publish images, or run the resource-heavy Kafka E2E matrix.
@@ -78,8 +81,8 @@ not deploy a cluster, publish images, or run the resource-heavy Kafka E2E matrix
 
 ## Known gaps
 
-- No browser/frontend tests because the repository has no frontend.
-- No load, soak, chaos, accessibility, or multi-node failover suite.
+- Component tests run in jsdom; there is not yet a full browser E2E or automated visual-regression suite.
+- No load, soak, chaos, automated accessibility, or multi-node failover suite.
 - No production-like payment provider, email/SMS, TLS/Ingress, or cloud deployment tests.
 - Kubernetes runtime readiness is a separate manual smoke test; static rendering does not prove that
   every pod becomes ready.
