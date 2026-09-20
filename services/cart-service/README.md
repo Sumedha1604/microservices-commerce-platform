@@ -67,4 +67,7 @@ Integration coverage (`CartPostgresIntegrationTest`) uses Testcontainers to run 
 - Service port: `8085`.
 - `/actuator/health` is exposed for orchestration; other actuator endpoints are not.
 - `userId` and `productId` are UUID references only — no foreign key to User Service or Product Service, no cross-service database access.
-- **Not implemented yet:** Product Service validation of `productId`, Inventory Service availability checks, price snapshots, checkout, order creation, Kafka events, Redis, and authentication/security.
+- **Boundary:** Cart Service stores references and quantities only. Checkout loads Product data,
+  reserves Inventory, snapshots prices into an Order, and creates a Payment. Cart itself does not
+  publish Kafka events, use Redis, clear completed carts, validate JWTs, or enforce ownership;
+  authentication is applied at the API Gateway.

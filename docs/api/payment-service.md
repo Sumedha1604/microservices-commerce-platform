@@ -47,6 +47,11 @@ Responses use the shared `ApiResponse`; validation and domain errors use `ErrorR
 
 Unhandled exceptions return a sanitized message with no SQL, stack trace, or exception class name exposed.
 
-## Not implemented
+## Current boundaries
 
-Order Service integration, a real payment provider (Stripe/Adyen/PayPal), real money movement, webhook processing, Kafka, Saga/distributed transactions, checkout orchestration, inventory communication, authentication, payment retries, and provider reconciliation.
+Payment creation is part of synchronous checkout. Authorization and failure publish durable Kafka
+events through the transactional outbox; Order Service consumes them, and failed payments eventually
+trigger inventory compensation. The gateway requires authentication for payment routes.
+
+Not implemented: a real payment provider (Stripe/Adyen/PayPal), money movement, provider webhooks,
+provider retries/reconciliation, or downstream token validation and resource-ownership enforcement.

@@ -70,8 +70,8 @@ an override.
 - `dead_letter_event` stores full payloads and has no retention policy, so it grows without bound.
 - If the database is unavailable, ingestion retries and then skips the record so the DLT partition
   is not stalled; that record will have no inspection row.
-- **The admin endpoints are unauthenticated.** The repository has no cross-service authorization
-  model to hook into, so rather than invent one they are namespaced under `/api/v1/admin/**` for
-  an edge policy to match. Production hardening is required and is documented in
+- **Authorization is an edge policy.** The gateway now validates JWTs and restricts
+  `/api/v1/admin/**` to `ADMIN`. Order Service still does not validate tokens itself, so downstream
+  networking must remain private and defense-in-depth is future work. See
   `docs/events/dlt-operations.md`.
 - payment-service is unchanged; this milestone is entirely consumer-side.
